@@ -2,11 +2,7 @@
 
 public abstract class MetaAttribute : Attribute
 {
-    public virtual void OnEntry(object? @this, string methodName, object?[]? parameters)
-    {
-    }
+    public abstract void OnEntry(object? @this, string methodName, object?[]? parameters);
 
-    public virtual void OnExit(object? @this, string methodName)
-    {
-    }
+    public abstract void OnExit(object? @this, string methodName);
 }

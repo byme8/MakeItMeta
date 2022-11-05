@@ -6,14 +6,27 @@ namespace MakeItMeta.Core;
 
 public class MetaMaker
 {
-    public Stream MakeItMeta(Stream assembly)
+    public async Task<MemoryStream> MakeItMeta(Stream assembly, InjectionConfig? injectionConfig = null)
     {
-        var module = ModuleDefinition.ReadModule(assembly);
+        var targetModule = ModuleDefinition.ReadModule(assembly);
+        var injectableModules = injectionConfig?
+            .AdditionalAssemblies?
+            .Select(ModuleDefinition.ReadModule) ?? Array.Empty<ModuleDefinition>();
 
-        var types = module.Types
+        var allModules = new List<ModuleDefinition>();
+        allModules.Add(targetModule);
+        allModules.AddRange(injectableModules);
+        
+        var types = allModules
+            .SelectMany(o => o.Types)
             .ToArray();
 
-        var methods = types
+        if (injectionConfig is not null)
+        {
+            InjectAttributes(types, injectionConfig);
+        }
+        
+        var methodsWithMetaAttributes = types
             .SelectMany(o => o.Methods)
             .Where(o => o.HasBody)
             .Where(o => o.CustomAttributes.Any(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute") ||
@@ -21,7 +34,7 @@ public class MetaMaker
                             a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute"))
             .ToArray();
 
-        foreach (var method in methods)
+        foreach (var method in methodsWithMetaAttributes)
         {
             if (method.Body is null)
             {
@@ -54,17 +67,19 @@ public class MetaMaker
             foreach (var metaAttribute in typeMetaAttributes.Concat(methodMetaAttributes).DistinctBy(o => o.Name))
             {
                 var attributeType = metaAttribute.Resolve();
-                var onEntryMethod = attributeType.Methods.Single(o => o.Name == "OnEntry");
-                var onExitMethod = attributeType.Methods.Single(o => o.Name == "OnExit");
+                var importedAttribute = method.Module.ImportReference(attributeType);
+                var constructor = targetModule.ImportReference(attributeType.GetConstructors().First());
+                var onEntryMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnEntry"));
+                var onExitMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnExit"));
 
                 var il = method.Body.GetILProcessor();
                 var firstInstruction = method.Body.Instructions.First();
                 var lastInstruction = method.Body.Instructions.Last();
 
-                var attributeVariable = new VariableDefinition(attributeType);
+                var attributeVariable = new VariableDefinition(importedAttribute);
                 method.Body.Variables.Add(attributeVariable);
 
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Newobj, attributeType.GetConstructors().First()));
+                il.InsertBefore(firstInstruction, il.Create(OpCodes.Newobj, constructor));
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Stloc, attributeVariable));
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldloc, attributeVariable));
                 il.InsertBefore(firstInstruction,
@@ -76,7 +91,7 @@ public class MetaMaker
                     .ToArray();
 
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, parameters.Length));
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Newarr, module.ImportReference(typeof(object))));
+                il.InsertBefore(firstInstruction, il.Create(OpCodes.Newarr, targetModule.ImportReference(typeof(object))));
                 for (var i = 0; i < parameters.Length; i++)
                 {
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Dup));
@@ -100,9 +115,54 @@ public class MetaMaker
         }
 
         var memoryStream = new MemoryStream();
-        module.Write(memoryStream);
+        targetModule.Write(memoryStream);
 
         return memoryStream;
+    }
+
+    private void InjectAttributes(TypeDefinition[] types, InjectionConfig injectionConfig)
+    {
+        var attributesSet = injectionConfig.Entries?
+            .Select(o => o.Attribute)
+            .ToHashSet();
+
+        var attributes = types
+            .Where(o => attributesSet.Contains(o.FullName))
+            .ToDictionary(o => o.FullName);
+        
+        var injectableTypes = injectionConfig.Entries
+            .ToDictionary(o => o.Type);
+
+        foreach (var type in types)
+        {
+            if (!injectableTypes.TryGetValue(type.FullName, out var injectableEntry))
+            {
+                continue;
+            }
+
+            if (!attributes.TryGetValue(injectableEntry.Attribute, out var injectableAttribute))
+            {
+                continue;
+            }
+
+            var moduleAttribute = injectableAttribute;
+            var methodDefinition = moduleAttribute.GetConstructors().First();
+            var attributeConstructor = type.Module.ImportReference(methodDefinition);
+            if (injectableEntry.Methods is null)
+            {
+                type.CustomAttributes.Add(new CustomAttribute(attributeConstructor));
+                continue;
+            }
+
+            var injectableMethods = type.Methods
+                .Where(o => injectableEntry.Methods.Contains(o.Name))
+                .ToArray();
+
+            foreach (var injectableMethod in injectableMethods)
+            {
+                injectableMethod.CustomAttributes.Add(new CustomAttribute(attributeConstructor));
+            }
+        }
     }
 
     void ReplaceJumps(MethodBody methodBody)
