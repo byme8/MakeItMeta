@@ -1,0 +1,8 @@
+﻿{
+  Errors: [
+    {
+      Code: FAILED_TO_FIND_ATTRIBUTE,
+      Message: Failed to find meta attribute 'MakeItMeta.Tests.MissingAttribute'
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+﻿{
+  Errors: [
+    {
+      Code: MISSING_TYPE,
+      Message: The type 'MakeItMeta.TestApp.MissingExecutor' is missing
+    }
+  ]
+}

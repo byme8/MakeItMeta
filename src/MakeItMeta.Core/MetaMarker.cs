@@ -1,4 +1,5 @@
-﻿using Mono.Cecil;
+﻿using MakeItMeta.Core.Results;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 
@@ -6,7 +7,7 @@ namespace MakeItMeta.Core;
 
 public class MetaMaker
 {
-    public async Task<MemoryStream> MakeItMeta(Stream assembly, InjectionConfig? injectionConfig = null)
+    public Result<MemoryStream> MakeItMeta(Stream assembly, InjectionConfig? injectionConfig = null)
     {
         var targetModule = ModuleDefinition.ReadModule(assembly);
         var injectableModules = injectionConfig?
@@ -16,16 +17,20 @@ public class MetaMaker
         var allModules = new List<ModuleDefinition>();
         allModules.Add(targetModule);
         allModules.AddRange(injectableModules);
-        
+
         var types = allModules
             .SelectMany(o => o.Types)
             .ToArray();
 
         if (injectionConfig is not null)
         {
-            InjectAttributes(types, injectionConfig);
+            var errors = InjectAttributes(types, injectionConfig).Unwrap();
+            if (errors)
+            {
+                return errors;
+            }
         }
-        
+
         var methodsWithMetaAttributes = types
             .SelectMany(o => o.Methods)
             .Where(o => o.HasBody)
@@ -120,29 +125,45 @@ public class MetaMaker
         return memoryStream;
     }
 
-    private void InjectAttributes(TypeDefinition[] types, InjectionConfig injectionConfig)
+    private Result InjectAttributes(TypeDefinition[] types, InjectionConfig injectionConfig)
     {
-        var attributesSet = injectionConfig.Entries?
+        var attributesSet = injectionConfig.Entries
             .Select(o => o.Attribute)
             .ToHashSet();
 
         var attributes = types
             .Where(o => attributesSet.Contains(o.FullName))
             .ToDictionary(o => o.FullName);
-        
-        var injectableTypes = injectionConfig.Entries
+
+        var entriesByType = injectionConfig.Entries
             .ToDictionary(o => o.Type);
 
-        foreach (var type in types)
+        var typesToProcess = types
+            .Where(o => entriesByType.ContainsKey(o.FullName))
+            .ToDictionary(o => o.FullName);
+
+        var missingTypes = entriesByType
+            .Where(o => !typesToProcess.ContainsKey(o.Key))
+            .Select(o => o.Key)
+            .ToArray();
+
+        if (missingTypes.Any())
         {
-            if (!injectableTypes.TryGetValue(type.FullName, out var injectableEntry))
+            return missingTypes
+                .Select(o => new Error("MISSING_TYPE", $"The type '{o}' is missing"))
+                .ToArray();
+        }
+        
+        foreach (var type in typesToProcess.Values)
+        {
+            if (!entriesByType.TryGetValue(type.FullName, out var injectableEntry))
             {
                 continue;
             }
 
             if (!attributes.TryGetValue(injectableEntry.Attribute, out var injectableAttribute))
             {
-                continue;
+                return Result.Error(new Error("FAILED_TO_FIND_ATTRIBUTE", $"Failed to find meta attribute '{injectableEntry.Attribute}'"));
             }
 
             var moduleAttribute = injectableAttribute;
@@ -155,14 +176,27 @@ public class MetaMaker
             }
 
             var injectableMethods = type.Methods
-                .Where(o => injectableEntry.Methods.Contains(o.Name))
+                .IntersectBy(injectableEntry.Methods, o => o.Name)
+                .ToDictionary(o => o.Name);
+
+            var missingMethods = injectableEntry.Methods
+                .Where(o => !injectableMethods.ContainsKey(o))
                 .ToArray();
 
-            foreach (var injectableMethod in injectableMethods)
+            if (missingMethods.Any())
+            {
+                return missingMethods
+                    .Select(o => new Error("MISSING_METHOD", $"The method '{o}' is missing in type '{injectableEntry.Type}'"))
+                    .ToArray();
+            }
+            
+            foreach (var injectableMethod in injectableMethods.Values)
             {
                 injectableMethod.CustomAttributes.Add(new CustomAttribute(attributeConstructor));
             }
         }
+
+        return Result.Success();
     }
 
     void ReplaceJumps(MethodBody methodBody)

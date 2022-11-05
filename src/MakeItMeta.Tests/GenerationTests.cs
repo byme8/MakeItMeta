@@ -1,12 +1,13 @@
 using System.Reflection;
 using FluentAssertions;
-using MakeItMeta.Attributes;
 using MakeItMeta.Core;
+using MakeItMeta.Core.Results;
 using MakeItMeta.Tests.Core;
 using MakeItMeta.Tests.Data;
 
 namespace MakeItMeta.Tests;
 
+[UsesVerify]
 public class GenerationTests
 {
     [Fact]
@@ -25,7 +26,7 @@ public class GenerationTests
         var memoryStream = new MemoryStream(assembly);
 
         var maker = new MetaMaker();
-        var resultAssembly = await maker.MakeItMeta(memoryStream);
+        var (resultAssembly, error) = maker.MakeItMeta(memoryStream).Unwrap();
         var newAssembly = Assembly.Load(resultAssembly.ToArray());
 
         var result = newAssembly.Execute();
@@ -49,34 +50,105 @@ public class GenerationTests
             {
                 new InjectionEntry()
                 {
-                    Attribute = "MakeItMeta.Tests.TestAttribute", 
+                    Attribute = "MakeItMeta.Tests.TestAttribute",
                     Type = "MakeItMeta.TestApp.Executor",
-                    Methods = new []{ "Execute" }
+                    Methods = new[] { "Execute" }
                 }
             });
 
         var maker = new MetaMaker();
-        var resultAssembly = await maker.MakeItMeta(testAssembly.AsStream(), config);
+        var (resultAssembly, _) = maker.MakeItMeta(testAssembly.AsStream(), config).Unwrap();
 
         var newAssembly = Assembly.Load(resultAssembly.ToArray());
 
         var result = newAssembly.Execute();
         TestAttribute.Assemblies.Should().Contain(newAssembly.FullName);
     }
-}
-
-public class TestAttribute : MetaAttribute
-{
-    public static HashSet<string> Assemblies { get; set; } = new();
     
-    public override void OnEntry(object? @this, string methodName, object?[]? parameters)
+    [Fact]
+    public async Task MissingAttributeIsReported()
     {
-        var assembly = @this.GetType().Assembly;
-        Assemblies.Add(assembly.FullName);
-    }
+        var testAssembly = await TestProject.Project.CompileToRealAssemblyAsBytes();
+        var coreAssembly = File.OpenRead("MakeItMeta.Attributes.dll");
+        var thisAssembly = File.OpenRead(GetType().Assembly.Location);
 
-    public override void OnExit(object? @this, string methodName)
+        var config = new InjectionConfig(
+            new Stream[]
+            {
+                coreAssembly,
+                thisAssembly
+            },
+            new[]
+            {
+                new InjectionEntry
+                {
+                    Attribute = "MakeItMeta.Tests.MissingAttribute",
+                    Type = "MakeItMeta.TestApp.Executor",
+                    Methods = new[] { "Execute" }
+                }
+            });
+
+        var maker = new MetaMaker();
+        var (_, error) = maker.MakeItMeta(testAssembly.AsStream(), config).Unwrap();
+
+        await Verify(error);
+    }
+    
+    [Fact]
+    public async Task MissingMethodIsReported()
     {
-        
+        var testAssembly = await TestProject.Project.CompileToRealAssemblyAsBytes();
+        var coreAssembly = File.OpenRead("MakeItMeta.Attributes.dll");
+        var thisAssembly = File.OpenRead(GetType().Assembly.Location);
+
+        var config = new InjectionConfig(
+            new Stream[]
+            {
+                coreAssembly,
+                thisAssembly
+            },
+            new[]
+            {
+                new InjectionEntry
+                {
+                    Attribute = "MakeItMeta.Tests.TestAttribute",
+                    Type = "MakeItMeta.TestApp.Executor",
+                    Methods = new[] { "MissingMethod" }
+                }
+            });
+
+        var maker = new MetaMaker();
+        var (_, error) = maker.MakeItMeta(testAssembly.AsStream(), config).Unwrap();
+
+        await Verify(error);
+    }
+    
+    [Fact]
+    public async Task MissingTypeIsReported()
+    {
+        var testAssembly = await TestProject.Project.CompileToRealAssemblyAsBytes();
+        var coreAssembly = File.OpenRead("MakeItMeta.Attributes.dll");
+        var thisAssembly = File.OpenRead(GetType().Assembly.Location);
+
+        var config = new InjectionConfig(
+            new Stream[]
+            {
+                coreAssembly,
+                thisAssembly
+            },
+            new[]
+            {
+                new InjectionEntry
+                {
+                    Attribute = "MakeItMeta.Tests.TestAttribute",
+                    Type = "MakeItMeta.TestApp.MissingExecutor",
+                    Methods = new[] { "Execute" }
+                }
+            });
+
+        var maker = new MetaMaker();
+        var (_, error) = maker.MakeItMeta(testAssembly.AsStream(), config).Unwrap();
+
+        await Verify(error);
     }
 }
