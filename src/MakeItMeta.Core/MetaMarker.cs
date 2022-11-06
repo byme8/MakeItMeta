@@ -31,12 +31,20 @@ public class MetaMaker
             }
         }
 
+        InjectInterceptorBaseOnAttributes(types, targetModule);
+
+        var newAssembly = new MemoryStream();
+        targetModule.Write(newAssembly);
+
+        return newAssembly;
+    }
+
+    private void InjectInterceptorBaseOnAttributes(TypeDefinition[] types, ModuleDefinition targetModule)
+    {
         var methodsWithMetaAttributes = types
             .SelectMany(o => o.Methods)
             .Where(o => o.HasBody)
-            .Where(o => o.CustomAttributes.Any(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute") ||
-                        o.DeclaringType.CustomAttributes.Any(
-                            a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute"))
+            .Where(MethodThatHasMetaAttributeOrContainingTypeHasMetaAttribute)
             .ToArray();
 
         foreach (var method in methodsWithMetaAttributes)
@@ -118,12 +126,12 @@ public class MetaMaker
                 ReplaceJumps(method.Body);
             }
         }
-
-        var memoryStream = new MemoryStream();
-        targetModule.Write(memoryStream);
-
-        return memoryStream;
     }
+
+    private static bool MethodThatHasMetaAttributeOrContainingTypeHasMetaAttribute(MethodDefinition method)
+        => method.CustomAttributes.Any(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute") ||
+               method.DeclaringType.CustomAttributes.Any(
+                   a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute");
 
     private Result InjectAttributes(TypeDefinition[] types, InjectionConfig injectionConfig)
     {
