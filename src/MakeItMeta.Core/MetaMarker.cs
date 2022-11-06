@@ -24,14 +24,18 @@ public class MetaMaker
 
         if (injectionConfig is not null)
         {
-            var errors = InjectAttributes(types, injectionConfig).Unwrap();
-            if (errors)
+            var injectAttributeError = InjectAttributes(types, injectionConfig).Unwrap();
+            if (injectAttributeError)
             {
-                return errors;
+                return injectAttributeError;
             }
         }
 
-        InjectInterceptorBaseOnAttributes(types, targetModule);
+        var injectionError = InjectInterceptorBaseOnAttributes(types, targetModule).Unwrap();
+        if (injectionError)
+        {
+            return injectionError;
+        }
 
         var newAssembly = new MemoryStream();
         targetModule.Write(newAssembly);
@@ -39,7 +43,7 @@ public class MetaMaker
         return newAssembly;
     }
 
-    private void InjectInterceptorBaseOnAttributes(TypeDefinition[] types, ModuleDefinition targetModule)
+    private Result InjectInterceptorBaseOnAttributes(TypeDefinition[] types, ModuleDefinition targetModule)
     {
         var methodsWithMetaAttributes = types
             .SelectMany(o => o.Methods)
@@ -49,24 +53,27 @@ public class MetaMaker
 
         foreach (var method in methodsWithMetaAttributes)
         {
+            var fullMethodName = $"{method.DeclaringType.FullName}.{method.Name}";
             if (method.Body is null)
             {
-                continue;
+                return new Error("METHOD_MISSING_BODY", $"The method '{fullMethodName}' missing body");
             }
 
             if (method.Body.Instructions.Count == 0)
             {
-                continue;
+                return new Error("METHOD_MISSING_INSTRUCTIONS", $"The method '{fullMethodName}' missing instructions");
             }
 
             if (method.Parameters.Any(
                     o => o.IsOut || o.ParameterType.IsByReference || o.ParameterType.IsGenericInstance))
             {
-                continue;
+                var message = $"At the moment method '{fullMethodName}' is not supported. It has generics or by references parameters";
+                return new Error("METHOD_IS_NOT_SUPPORTED", message);
             }
 
-            var fullMethodName = $"{method.DeclaringType.FullName}.{method.Name}";
-
+            var newMethodName = $"<>InternalMetaCopy{method.Name}";
+            var copyMethod = CopyMethodWithNewName(newMethodName,method);
+            
             var typeMetaAttributes = method.DeclaringType.CustomAttributes
                 .Where(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute")
                 .Select(o => o.AttributeType)
@@ -84,8 +91,21 @@ public class MetaMaker
                 var constructor = targetModule.ImportReference(attributeType.GetConstructors().First());
                 var onEntryMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnEntry"));
                 var onExitMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnExit"));
-
+                var parameters = method.Parameters
+                    .Where(o => !o.IsOut || !o.ParameterType.IsByReference)
+                    .ToArray();
+                
+                method.Body.Instructions.Clear();
                 var il = method.Body.GetILProcessor();
+                il.Append(il.Create(OpCodes.Ldarg_0));
+                foreach (var parameter in parameters)
+                {
+                    il.Append(il.Create(OpCodes.Ldarg, parameter));
+                }
+                
+                il.Append(il.Create(OpCodes.Call, copyMethod));
+                il.Append(il.Create(OpCodes.Ret));
+                
                 var firstInstruction = method.Body.Instructions.First();
                 var lastInstruction = method.Body.Instructions.Last();
 
@@ -99,9 +119,6 @@ public class MetaMaker
                     method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull));
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
 
-                var parameters = method.Parameters
-                    .Where(o => !o.IsOut || !o.ParameterType.IsByReference)
-                    .ToArray();
 
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, parameters.Length));
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Newarr, targetModule.ImportReference(typeof(object))));
@@ -122,10 +139,37 @@ public class MetaMaker
                     method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull));
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Callvirt, onExitMethod));
-
-                ReplaceJumps(method.Body);
             }
         }
+
+        return Result.Success();
+    }
+
+    private MethodDefinition CopyMethodWithNewName(string newMethodName, MethodDefinition method)
+    {
+        var copyMethod = new MethodDefinition(newMethodName, method.Attributes, method.ReturnType);
+        foreach (var parameter in method.Parameters)
+        {
+            copyMethod.Parameters.Add(new ParameterDefinition(parameter.Name, parameter.Attributes, parameter.ParameterType));
+        }
+        
+        foreach (var variable in method.Body.Variables)
+        {
+            copyMethod.Body.Variables.Add(new VariableDefinition(variable.VariableType));
+        }
+        
+        foreach (var instruction in method.Body.Instructions)
+        {
+            copyMethod.Body.Instructions.Add(instruction);
+        }
+        
+        foreach (var exceptionHandler in method.Body.ExceptionHandlers)
+        {
+            copyMethod.Body.ExceptionHandlers.Add(exceptionHandler);
+        }
+        
+        method.DeclaringType.Methods.Add(copyMethod);
+        return copyMethod;
     }
 
     private static bool MethodThatHasMetaAttributeOrContainingTypeHasMetaAttribute(MethodDefinition method)
@@ -205,106 +249,5 @@ public class MetaMaker
         }
 
         return Result.Success();
-    }
-
-    void ReplaceJumps(MethodBody methodBody)
-    {
-        foreach (var instruction in methodBody.Instructions)
-        {
-            if (instruction.OpCode == OpCodes.Br_S)
-            {
-                instruction.OpCode = OpCodes.Br;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Leave_S)
-            {
-                instruction.OpCode = OpCodes.Leave;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Beq_S)
-            {
-                instruction.OpCode = OpCodes.Beq;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Bne_Un_S)
-            {
-                instruction.OpCode = OpCodes.Bne_Un;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Bge_S)
-            {
-                instruction.OpCode = OpCodes.Bge;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Bge_Un_S)
-            {
-                instruction.OpCode = OpCodes.Bge_Un;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Bgt_S)
-            {
-                instruction.OpCode = OpCodes.Bgt;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Bgt_Un_S)
-            {
-                instruction.OpCode = OpCodes.Bgt_Un;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Ble_S)
-            {
-                instruction.OpCode = OpCodes.Ble;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Ble_Un_S)
-            {
-                instruction.OpCode = OpCodes.Ble_Un;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Blt_S)
-            {
-                instruction.OpCode = OpCodes.Blt;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Blt_Un_S)
-            {
-                instruction.OpCode = OpCodes.Blt_Un;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Bne_Un_S)
-            {
-                instruction.OpCode = OpCodes.Bne_Un;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Brfalse_S)
-            {
-                instruction.OpCode = OpCodes.Brfalse;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Brtrue_S)
-            {
-                instruction.OpCode = OpCodes.Brtrue;
-                continue;
-            }
-
-            if (instruction.OpCode == OpCodes.Beq_S)
-            {
-                instruction.OpCode = OpCodes.Beq;
-            }
-        }
     }
 }

@@ -1,0 +1,11 @@
+﻿[
+  null,
+  [
+    Execute,
+    <>InternalMetaCopyExecute,
+    GetType,
+    ToString,
+    Equals,
+    GetHashCode
+  ]
+]

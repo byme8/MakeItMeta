@@ -1,8 +1,0 @@
-﻿{
-  Errors: [
-    {
-      Code: MISSING_METHOD,
-      Message: The method 'MissingMethod' is missing in type 'MakeItMeta.TestApp.Executor'
-    }
-  ]
-}

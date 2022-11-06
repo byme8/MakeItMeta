@@ -15,6 +15,9 @@ public record Result
 
     public static implicit operator Result(Error[] value)
         => new ErrorResult<Unit>(value);
+    
+    public static implicit operator Result(Error value)
+        => new ErrorResult<Unit>(value);
 }
 
 public record Result<T> : Result
