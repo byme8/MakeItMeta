@@ -1,0 +1,4 @@
+﻿[
+  MakeItMeta.TestApp.Provider.Provide,
+  MakeItMeta.TestApp.Executor.Execute
+]

@@ -3,7 +3,7 @@ namespace MakeItMeta.Tests;
 
 public class TestAttribute : MetaAttribute
 {
-    public static HashSet<string> Assemblies { get; set; } = new();
+    public static Dictionary<string, HashSet<string>> MethodsByAssembly { get; set; } = new();
 
     public override void OnEntry(object? @this, string methodName, object?[]? parameters)
     {
@@ -13,7 +13,14 @@ public class TestAttribute : MetaAttribute
         }
 
         var assembly = @this.GetType().Assembly;
-        Assemblies.Add(assembly.FullName!);
+        var assemblyFullName = assembly.FullName!;
+
+        if (!MethodsByAssembly.ContainsKey(assemblyFullName))
+        {
+            MethodsByAssembly.Add(assemblyFullName, new HashSet<string>());
+        }
+        
+        MethodsByAssembly[assemblyFullName].Add(methodName);
     }
 
     public override void OnExit(object? @this, string methodName)

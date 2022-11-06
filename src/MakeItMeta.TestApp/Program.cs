@@ -9,7 +9,7 @@ public static class Program
 
     public static object? Execute()
     {
-        return new Executor().Execute(); // place to replace
+        return new Provider().Provide().Execute(); // place to replace
     }
 }
 
@@ -18,5 +18,13 @@ public class Executor
     public object? Execute()
     {
         return null; // place to replace
+    }
+}
+
+public class Provider
+{
+    public Executor Provide()
+    {
+        return new Executor();
     }
 }
