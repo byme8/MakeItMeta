@@ -30,12 +30,14 @@ public class GenerationTests
                 AdditionalAssemblies(),
                 new[]
                 {
-                    new InjectionEntry
-                    {
-                        Attribute = "MakeItMeta.Tests.TestAttribute",
-                        Type = "MakeItMeta.TestApp.Executor",
-                        Methods = new[] { "Execute" }
-                    }
+                    new InjectionEntry(
+                        "MakeItMeta.Tests.TestAttribute",
+                        new[]
+                        {
+                            new InjectionTypeEntry(
+                                "MakeItMeta.TestApp.Executor",
+                                new[] { "Execute" })
+                        })
                 })
         },
         new object[]
@@ -45,20 +47,25 @@ public class GenerationTests
                 AdditionalAssemblies(),
                 new[]
                 {
-                    new InjectionEntry
-                    {
-                        Attribute = "MakeItMeta.Tests.TestAttribute",
-                        Type = "MakeItMeta.TestApp.Executor",
-                        Methods = new[] { "Execute" }
-                    },
-                    new InjectionEntry
-                    {
-                        Attribute = "MakeItMeta.Tests.TestAttribute",
-                        Type = "MakeItMeta.TestApp.Provider",
-                        Methods = new[] { "Provide" }
-                    }
+                    new InjectionEntry(
+                        "MakeItMeta.Tests.TestAttribute",
+                        new[]
+                        {
+                            new InjectionTypeEntry(
+                                "MakeItMeta.TestApp.Executor",
+                                new[] { "Execute" })
+                        }),
+                    new InjectionEntry(
+                        "MakeItMeta.Tests.TestAttribute",
+                        new[]
+                        {
+                            new InjectionTypeEntry(
+                                "MakeItMeta.TestApp.Provider",
+                                new[] { "Provide" })
+                        })
                 })
         },
+
         new object[]
         {
             "MissingAttributeIsReported",
@@ -66,14 +73,17 @@ public class GenerationTests
                 AdditionalAssemblies(),
                 new[]
                 {
-                    new InjectionEntry
-                    {
-                        Attribute = "MakeItMeta.Tests.MissingAttribute",
-                        Type = "MakeItMeta.TestApp.Executor",
-                        Methods = new[] { "Execute" }
-                    }
+                    new InjectionEntry(
+                        "MakeItMeta.Tests.MissingAttribute",
+                        new[]
+                        {
+                            new InjectionTypeEntry(
+                                "MakeItMeta.TestApp.Executor",
+                                new[] { "Execute" })
+                        })
                 })
         },
+
         new object[]
         {
             "MissingMethodIsReported",
@@ -81,14 +91,16 @@ public class GenerationTests
                 AdditionalAssemblies(),
                 new[]
                 {
-                    new InjectionEntry
-                    {
-                        Attribute = "MakeItMeta.Tests.TestAttribute",
-                        Type = "MakeItMeta.TestApp.Executor",
-                        Methods = new[] { "MissingExecute" }
-                    }
+                    new InjectionEntry("MakeItMeta.Tests.TestAttribute",
+                        new[]
+                        {
+                            new InjectionTypeEntry(
+                                "MakeItMeta.TestApp.Executor",
+                                new[] { "MissingExecute" })
+                        })
                 })
         },
+
         new object[]
         {
             "MissingTypeIsReported",
@@ -96,12 +108,14 @@ public class GenerationTests
                 AdditionalAssemblies(),
                 new[]
                 {
-                    new InjectionEntry
-                    {
-                        Attribute = "MakeItMeta.Tests.TestAttribute",
-                        Type = "MakeItMeta.TestApp.MissingExecutor",
-                        Methods = new[] { "Execute" }
-                    }
+                    new InjectionEntry(
+                        "MakeItMeta.Tests.TestAttribute",
+                        new[]
+                        {
+                            new InjectionTypeEntry(
+                                "MakeItMeta.TestApp.MissingExecutor",
+                                new[] { "Execute" })
+                        })
                 })
         },
     };
@@ -164,12 +178,13 @@ public class GenerationTests
             AdditionalAssemblies(),
             new[]
             {
-                new InjectionEntry
-                {
-                    Attribute = "MakeItMeta.Tests.TestAttribute",
-                    Type = "MakeItMeta.TestApp.Executor",
-                    Methods = new[] { "Execute" }
-                }
+                new InjectionEntry(
+                    "MakeItMeta.Tests.TestAttribute",
+                    new[]
+                    {
+                        new InjectionTypeEntry("MakeItMeta.TestApp.Executor", new[] { "Execute" })
+                    })
+
             });
 
         var maker = new MetaMaker();

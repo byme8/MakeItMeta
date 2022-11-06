@@ -1,10 +1,6 @@
+
 namespace MakeItMeta.Core;
 
-public class InjectionEntry
-{
-    public string Attribute { get; set; }
+public record InjectionEntry(string Attribute, InjectionTypeEntry[] Types);
 
-    public string Type { get; set; }
-
-    public string[]? Methods { get; set; }
-}
+public record InjectionTypeEntry(string Name, string[]? Methods);

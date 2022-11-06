@@ -72,8 +72,8 @@ public class MetaMaker
             }
 
             var newMethodName = $"<>InternalMetaCopy{method.Name}";
-            var copyMethod = CopyMethodWithNewName(newMethodName,method);
-            
+            var copyMethod = CopyMethodWithNewName(newMethodName, method);
+
             var typeMetaAttributes = method.DeclaringType.CustomAttributes
                 .Where(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute")
                 .Select(o => o.AttributeType)
@@ -94,7 +94,7 @@ public class MetaMaker
                 var parameters = method.Parameters
                     .Where(o => !o.IsOut || !o.ParameterType.IsByReference)
                     .ToArray();
-                
+
                 method.Body.Instructions.Clear();
                 var il = method.Body.GetILProcessor();
                 il.Append(il.Create(OpCodes.Ldarg_0));
@@ -102,10 +102,10 @@ public class MetaMaker
                 {
                     il.Append(il.Create(OpCodes.Ldarg, parameter));
                 }
-                
+
                 il.Append(il.Create(OpCodes.Call, copyMethod));
                 il.Append(il.Create(OpCodes.Ret));
-                
+
                 var firstInstruction = method.Body.Instructions.First();
                 var lastInstruction = method.Body.Instructions.Last();
 
@@ -152,30 +152,30 @@ public class MetaMaker
         {
             copyMethod.Parameters.Add(new ParameterDefinition(parameter.Name, parameter.Attributes, parameter.ParameterType));
         }
-        
+
         foreach (var variable in method.Body.Variables)
         {
             copyMethod.Body.Variables.Add(new VariableDefinition(variable.VariableType));
         }
-        
+
         foreach (var instruction in method.Body.Instructions)
         {
             copyMethod.Body.Instructions.Add(instruction);
         }
-        
+
         foreach (var exceptionHandler in method.Body.ExceptionHandlers)
         {
             copyMethod.Body.ExceptionHandlers.Add(exceptionHandler);
         }
-        
+
         method.DeclaringType.Methods.Add(copyMethod);
         return copyMethod;
     }
 
     private static bool MethodThatHasMetaAttributeOrContainingTypeHasMetaAttribute(MethodDefinition method)
         => method.CustomAttributes.Any(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute") ||
-               method.DeclaringType.CustomAttributes.Any(
-                   a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute");
+           method.DeclaringType.CustomAttributes.Any(
+               a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute");
 
     private Result InjectAttributes(TypeDefinition[] types, InjectionConfig injectionConfig)
     {
@@ -183,68 +183,66 @@ public class MetaMaker
             .Select(o => o.Attribute)
             .ToHashSet();
 
-        var attributes = types
+        var metaAttributes = types
             .Where(o => attributesSet.Contains(o.FullName))
             .ToDictionary(o => o.FullName);
 
-        var entriesByType = injectionConfig.Entries
-            .ToDictionary(o => o.Type);
-
-        var typesToProcess = types
-            .Where(o => entriesByType.ContainsKey(o.FullName))
-            .ToDictionary(o => o.FullName);
-
-        var missingTypes = entriesByType
-            .Where(o => !typesToProcess.ContainsKey(o.Key))
-            .Select(o => o.Key)
-            .ToArray();
-
-        if (missingTypes.Any())
+        foreach (var entry in injectionConfig.Entries)
         {
-            return missingTypes
-                .Select(o => new Error("MISSING_TYPE", $"The type '{o}' is missing"))
-                .ToArray();
-        }
-        
-        foreach (var type in typesToProcess.Values)
-        {
-            if (!entriesByType.TryGetValue(type.FullName, out var injectableEntry))
-            {
-                continue;
-            }
-
-            if (!attributes.TryGetValue(injectableEntry.Attribute, out var injectableAttribute))
-            {
-                return Result.Error(new Error("FAILED_TO_FIND_ATTRIBUTE", $"Failed to find meta attribute '{injectableEntry.Attribute}'"));
-            }
-
-            var moduleAttribute = injectableAttribute;
-            var methodDefinition = moduleAttribute.GetConstructors().First();
-            var attributeConstructor = type.Module.ImportReference(methodDefinition);
-            if (injectableEntry.Methods is null)
-            {
-                type.CustomAttributes.Add(new CustomAttribute(attributeConstructor));
-                continue;
-            }
-
-            var injectableMethods = type.Methods
-                .IntersectBy(injectableEntry.Methods, o => o.Name)
+            var entriesByType = entry.Types
                 .ToDictionary(o => o.Name);
 
-            var missingMethods = injectableEntry.Methods
-                .Where(o => !injectableMethods.ContainsKey(o))
+            var typesToProcess = types
+                .Where(o => entriesByType.ContainsKey(o.FullName))
+                .ToDictionary(o => o.FullName);
+
+            var missingTypes = entriesByType
+                .Where(o => !typesToProcess.ContainsKey(o.Key))
+                .Select(o => o.Key)
                 .ToArray();
 
-            if (missingMethods.Any())
+            if (missingTypes.Any())
             {
-                return missingMethods
-                    .Select(o => new Error("MISSING_METHOD", $"The method '{o}' is missing in type '{injectableEntry.Type}'"))
+                return missingTypes
+                    .Select(o => new Error("MISSING_TYPE", $"The type '{o}' is missing"))
                     .ToArray();
             }
-            
-            foreach (var injectableMethod in injectableMethods.Values)
+
+            foreach (var typeEntry in entry.Types)
             {
-                injectableMethod.CustomAttributes.Add(new CustomAttribute(attributeConstructor));
+                if (!metaAttributes.TryGetValue(entry.Attribute, out var injectableAttribute))
+                {
+                    return Result.Error(new Error("FAILED_TO_FIND_ATTRIBUTE", $"Failed to find meta attribute '{entry.Attribute}'"));
+                }
+
+                var typeDefinition = typesToProcess[typeEntry.Name];
+                var methodDefinition = injectableAttribute.GetConstructors().First();
+                var attributeConstructor = typeDefinition.Module.ImportReference(methodDefinition);
+                if (typeEntry.Methods is null)
+                {
+                    typeDefinition.CustomAttributes.Add(new CustomAttribute(attributeConstructor));
+                    continue;
+                }
+
+                var injectableMethods = typeDefinition.Methods
+                    .IntersectBy(typeEntry.Methods, o => o.Name)
+                    .ToDictionary(o => o.Name);
+
+                var missingMethods = typeEntry.Methods
+                    .Where(o => !injectableMethods.ContainsKey(o))
+                    .ToArray();
+
+                if (missingMethods.Any())
+                {
+                    return missingMethods
+                        .Select(o => new Error("MISSING_METHOD", $"The method '{o}' is missing in type '{typeEntry.Name}'"))
+                        .ToArray();
+                }
+
+                foreach (var injectableMethod in injectableMethods.Values)
+                {
+                    injectableMethod.CustomAttributes.Add(new CustomAttribute(attributeConstructor));
+                }
             }
         }
 
