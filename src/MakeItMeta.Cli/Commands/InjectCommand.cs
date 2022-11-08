@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using CliFx;
 using CliFx.Attributes;
@@ -36,11 +37,14 @@ public class InjectCommand : ICommand
             return;
         }
 
-        var failed = await ValidateInputConfig(console, inputConfig);
-        if (failed)
+        var validationError = ValidateInputConfig(console, inputConfig).Unwrap();
+        if (validationError)
         {
+            await console.Error.WriteLineAsync(validationError.Errors.First().Message);
             return;
         }
+
+        await console.Output.WriteLineAsync("Config is validated");
 
         var attributes = inputConfig.Attributes!
             .Select(att =>
@@ -86,12 +90,13 @@ public class InjectCommand : ICommand
         }
     }
 
-    private static async Task<bool> ValidateInputConfig(IConsole console, InjectionConfigInput inputConfig)
+    private static Result ValidateInputConfig(IConsole console, InjectionConfigInput inputConfig)
     {
+        var configValidationFailed = new Error("CONFIG_VALIDATION_FAILED", string.Empty);
         if (inputConfig.TargetAssemblies is null)
         {
-            await console.Error.WriteLineAsync("Config file does not contain any target assemblies");
-            return true;
+            return configValidationFailed
+                .WithMessage("Config file does not contain any target assemblies");
         }
 
         foreach (var target in inputConfig.TargetAssemblies)
@@ -101,8 +106,8 @@ public class InjectCommand : ICommand
                 continue;
             }
 
-            await console.Error.WriteLineAsync("failed to find target assembly at " + target);
-            return true;
+            return configValidationFailed
+                .WithMessage("failed to find target assembly at " + target);
         }
 
         foreach (var target in inputConfig.AdditionalAssemblies ?? Array.Empty<string>())
@@ -112,14 +117,14 @@ public class InjectCommand : ICommand
                 continue;
             }
 
-            await console.Error.WriteLineAsync("failed to find target assembly at " + target);
-            return true;
+            return configValidationFailed
+                .WithMessage("failed to find target assembly at " + target);
         }
 
         if (inputConfig.Attributes is null)
         {
-            await console.Error.WriteLineAsync("Config file does not contain any attributes");
-            return true;
+            return configValidationFailed
+                .WithMessage("Config file does not contain any attributes");
         }
 
         var attributeWithoutType = inputConfig.Attributes
@@ -128,12 +133,15 @@ public class InjectCommand : ICommand
 
         if (attributeWithoutType.Any())
         {
-            await console.Error.WriteLineAsync("The following attributes do not contain any types");
+            var stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine("The following attributes do not contain any types");
             foreach (var attribute in attributeWithoutType)
             {
-                await console.Error.WriteLineAsync($"- {attribute.Name}");
+                stringBuilder.AppendLine($"- {attribute.Name}");
             }
-            return true;
+            
+            return configValidationFailed
+                .WithMessage(stringBuilder.ToString());
         }
 
         var typeWithoutName = inputConfig.Attributes
@@ -143,14 +151,17 @@ public class InjectCommand : ICommand
 
         if (typeWithoutName.Any())
         {
-            await console.Error.WriteLineAsync("The following types do not contain a name");
+            var stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine("The following types do not contain a name");
             foreach (var type in typeWithoutName)
             {
-                await console.Error.WriteLineAsync($"- {type.Name}");
+                stringBuilder.AppendLine($"- {type.Name}");
             }
-            return true;
+            
+            return configValidationFailed
+                .WithMessage(stringBuilder.ToString());
         }
 
-        return false;
+        return Result.Success();
     }
 }

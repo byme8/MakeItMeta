@@ -37,7 +37,10 @@ public record Result<T> : Result
 
 public record Success<T>(T Value) : Result<T>;
 
-public record Error(string Code, string Message);
+public record Error(string Code, string Message)
+{
+    public Error WithMessage(string message) => new(Code, message);
+}
 
 public record struct UnwrapErrors(Error[] Errors)
 {
