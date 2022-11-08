@@ -127,7 +127,7 @@ public class GenerationTests
         var testAssembly = await TestProject.Project.CompileToRealAssemblyAsBytes();
 
         var maker = new MetaMaker();
-        var (resultAssembly, errors) = maker.MakeItMeta(testAssembly.AsStream(), config).Unwrap();
+        var (resultAssembly, errors) = maker.MakeItMeta(new Stream[] { testAssembly.AsStream() }, config).Unwrap();
         if (errors)
         {
             await Verify(errors)
@@ -135,7 +135,7 @@ public class GenerationTests
             return;
         }
 
-        var newAssembly = Assembly.Load(resultAssembly.ToArray());
+        var newAssembly = Assembly.Load(resultAssembly[0].ToArray());
 
         var result = newAssembly.Execute();
         var newAssemblyFullName = newAssembly.FullName!;
@@ -161,8 +161,8 @@ public class GenerationTests
         var memoryStream = new MemoryStream(assembly);
 
         var maker = new MetaMaker();
-        var (resultAssembly, error) = maker.MakeItMeta(memoryStream).Unwrap();
-        var newAssembly = Assembly.Load(resultAssembly.ToArray());
+        var (resultAssembly, error) = maker.MakeItMeta(new Stream[] { memoryStream }).Unwrap();
+        var newAssembly = Assembly.Load(resultAssembly[0].ToArray());
 
         var result = newAssembly.Execute();
         result.Should().BeNull();
@@ -188,8 +188,8 @@ public class GenerationTests
             });
 
         var maker = new MetaMaker();
-        var (resultAssembly, error) = maker.MakeItMeta(memoryStream, config).Unwrap();
-        var newAssembly = Assembly.Load(resultAssembly.ToArray());
+        var (resultAssembly, error) = maker.MakeItMeta(new Stream[] { memoryStream }, config).Unwrap();
+        var newAssembly = Assembly.Load(resultAssembly[0].ToArray());
         var result = newAssembly.Execute();
 
         await Verify(new[]

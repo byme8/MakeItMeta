@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -153,4 +154,11 @@ public static class TestExtensions
     }
 
     public static MemoryStream AsStream(this byte[] bytes) => new MemoryStream(bytes);
+
+    public static SettingsTask Track<TValue>(this SettingsTask settingsTask, TValue value, [CallerArgumentExpression("value")] string expression = default!)
+    {
+        settingsTask.AddScrubber(o => o.Replace(value!.ToString()!, $"{{{expression}}}"));
+
+        return settingsTask;
+    }
 }

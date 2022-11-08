@@ -1,0 +1,1 @@
+﻿Config file does not contain any target assemblies

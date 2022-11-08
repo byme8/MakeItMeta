@@ -7,40 +7,49 @@ namespace MakeItMeta.Core;
 
 public class MetaMaker
 {
-    public Result<MemoryStream> MakeItMeta(Stream assembly, InjectionConfig? injectionConfig = null)
+    public Result<IReadOnlyList<MemoryStream>> MakeItMeta(Stream[] targetAssemblies, InjectionConfig? injectionConfig = null)
     {
-        var targetModule = ModuleDefinition.ReadModule(assembly);
-        var injectableModules = injectionConfig?
-            .AdditionalAssemblies?
-            .Select(ModuleDefinition.ReadModule) ?? Array.Empty<ModuleDefinition>();
-
-        var allModules = new List<ModuleDefinition>();
-        allModules.Add(targetModule);
-        allModules.AddRange(injectableModules);
-
-        var types = allModules
-            .SelectMany(o => o.Types)
+        var targetModules = targetAssemblies
+            .Select(ModuleDefinition.ReadModule)
             .ToArray();
 
-        if (injectionConfig is not null)
+        var injectableModules = injectionConfig?
+            .AdditionalAssemblies?
+            .Select(ModuleDefinition.ReadModule)
+            .ToArray() ?? Array.Empty<ModuleDefinition>();
+
+        var resultAssemblies = new List<MemoryStream>(targetAssemblies.Length);
+        foreach (var targetModule in targetModules)
         {
-            var injectAttributeError = InjectAttributes(types, injectionConfig).Unwrap();
-            if (injectAttributeError)
+            var allModules = new List<ModuleDefinition>();
+            allModules.Add(targetModule);
+            allModules.AddRange(injectableModules);
+
+            var types = allModules
+                .SelectMany(o => o.Types)
+                .ToArray();
+
+            if (injectionConfig is not null)
             {
-                return injectAttributeError;
+                var injectAttributeError = InjectAttributes(types, injectionConfig).Unwrap();
+                if (injectAttributeError)
+                {
+                    return injectAttributeError;
+                }
             }
+
+            var injectionError = InjectInterceptorBaseOnAttributes(types, targetModule).Unwrap();
+            if (injectionError)
+            {
+                return injectionError;
+            }
+
+            var newAssembly = new MemoryStream();
+            targetModule.Write(newAssembly);
+            resultAssemblies.Add(newAssembly);
         }
 
-        var injectionError = InjectInterceptorBaseOnAttributes(types, targetModule).Unwrap();
-        if (injectionError)
-        {
-            return injectionError;
-        }
-
-        var newAssembly = new MemoryStream();
-        targetModule.Write(newAssembly);
-
-        return newAssembly;
+        return resultAssemblies;
     }
 
     private Result InjectInterceptorBaseOnAttributes(TypeDefinition[] types, ModuleDefinition targetModule)

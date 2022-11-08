@@ -1,3 +1,7 @@
-﻿// See https://aka.ms/new-console-template for more information
+﻿using CliFx;
+using MakeItMeta.Cli.Commands;
 
-Console.WriteLine("Hello, World!");
+await new CliApplicationBuilder()
+    .AddCommand<InjectCommand>()
+    .Build()
+    .RunAsync();
