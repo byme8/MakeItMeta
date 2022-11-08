@@ -1,0 +1,16 @@
+﻿{
+  outputString:
+Config is validated
+Modified: {tempTargetAssemblyFile}
+Done!
+,
+  errorString: ,
+  executorMethods: [
+    Execute,
+    <>InternalMetaCopyExecute,
+    GetType,
+    ToString,
+    Equals,
+    GetHashCode
+  ]
+}

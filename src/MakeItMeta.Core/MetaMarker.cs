@@ -46,6 +46,7 @@ public class MetaMaker
 
             var newAssembly = new MemoryStream();
             targetModule.Write(newAssembly);
+            newAssembly.Seek(0, SeekOrigin.Begin);
             resultAssemblies.Add(newAssembly);
         }
 
@@ -56,7 +57,7 @@ public class MetaMaker
     {
         var methodsWithMetaAttributes = types
             .SelectMany(o => o.Methods)
-            .Where(o => o.HasBody)
+            .Where(o => o.HasBody && !o.IsConstructor)
             .Where(MethodThatHasMetaAttributeOrContainingTypeHasMetaAttribute)
             .ToArray();
 

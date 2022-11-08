@@ -70,7 +70,39 @@ public class InjectCommand : ICommand
         var injectionConfig = new InjectionConfig(additionalAssemblies, attributes);
 
         var maker = new MetaMaker();
-        var resultAssemblies = maker.MakeItMeta(targetAssemblies, injectionConfig);
+        var (resultAssemblies, metaMakingError) = maker.MakeItMeta(targetAssemblies, injectionConfig).Unwrap();
+        if (metaMakingError)
+        {
+            await console.Error.WriteLineAsync(metaMakingError.Errors.First().Message);
+            return;
+        }
+
+        foreach (var targetAssembly in targetAssemblies)
+        {
+            await targetAssembly.DisposeAsync();
+        }
+        
+        var pathAndAssembly = inputConfig.TargetAssemblies!
+            .Zip(resultAssemblies, (path, stream) => new { Path = path, Stream = stream })
+            .ToArray();
+
+        foreach (var pathAndAssemblyStream in pathAndAssembly)
+        {
+            try
+            {
+                await using var file = File.Open(pathAndAssemblyStream.Path, FileMode.Create);
+                await pathAndAssemblyStream.Stream.CopyToAsync(file);
+                await console.Output.WriteLineAsync($"Modified: {pathAndAssemblyStream.Path}");
+            }
+            catch (Exception e)
+            {
+                await console.Error.WriteLineAsync($"Failed to modify: {pathAndAssemblyStream.Path}");
+                await console.Error.WriteLineAsync(e.ToString());
+                return;
+            }
+        }
+        
+        await console.Output.WriteLineAsync("Done!");
     }
 
     private Result<InjectionConfigInput> ReadConfig(string json)
@@ -145,17 +177,18 @@ public class InjectCommand : ICommand
         }
 
         var typeWithoutName = inputConfig.Attributes
-            .SelectMany(x => x.Types!)
-            .Where(x => x.Name is null)
+            .SelectMany(attribute => attribute.Types!
+                .Select(type => (AttrbuteName: attribute.Name, TypeName: type.Name)).ToArray())
+            .Where(x => x.TypeName is null)
             .ToArray();
 
         if (typeWithoutName.Any())
         {
             var stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine("The following types do not contain a name");
-            foreach (var type in typeWithoutName)
+            stringBuilder.AppendLine("The types do not contain names inside the attributes");
+            foreach (var attribute in typeWithoutName)
             {
-                stringBuilder.AppendLine($"- {type.Name}");
+                stringBuilder.AppendLine($"- {attribute.AttrbuteName}");
             }
             
             return configValidationFailed
