@@ -1,0 +1,13 @@
+<Project>
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <Authors>Stanislav Silin</Authors>
+        <PackageProjectUrl>https://github.com/byme8/MakeItMeta</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/byme8/MakeItMeta</RepositoryUrl>
+        <LicenseUrl>https://licenses.nuget.org/MIT</LicenseUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageTags>meta</PackageTags>
+        <NoPackageAnalysis>true</NoPackageAnalysis>
+    </PropertyGroup>
+</Project>  
