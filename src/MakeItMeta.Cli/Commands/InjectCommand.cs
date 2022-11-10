@@ -18,8 +18,8 @@ public class InjectCommand : ICommand
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    [CommandOption("input", 'i', Description = "The input file to inject into.")]
-    public string Config { get; set; }
+    [CommandOption("config", 'c', Description = "The injection configuration file.")]
+    public string? Config { get; set; }
 
     public async ValueTask ExecuteAsync(IConsole console)
     {
@@ -46,7 +46,7 @@ public class InjectCommand : ICommand
 
         await console.Output.WriteLineAsync("Config is validated");
 
-        var attributes = inputConfig.Attributes!
+        var attributes = inputConfig.Attributes?
             .Select(att =>
             {
                 var entries = att.Types!
@@ -139,7 +139,7 @@ public class InjectCommand : ICommand
             }
 
             return configValidationFailed
-                .WithMessage("failed to find target assembly at " + target);
+                .WithMessage("Failed to find target assembly at " + target);
         }
 
         foreach (var target in inputConfig.AdditionalAssemblies ?? Array.Empty<string>())
@@ -150,13 +150,12 @@ public class InjectCommand : ICommand
             }
 
             return configValidationFailed
-                .WithMessage("failed to find target assembly at " + target);
+                .WithMessage("Failed to find target assembly at " + target);
         }
 
         if (inputConfig.Attributes is null)
         {
-            return configValidationFailed
-                .WithMessage("Config file does not contain any attributes");
+            return Result.Success();
         }
 
         var attributeWithoutType = inputConfig.Attributes

@@ -189,6 +189,11 @@ public class MetaMaker
 
     private Result InjectAttributes(TypeDefinition[] types, InjectionConfig injectionConfig)
     {
+        if (injectionConfig.Entries is null)
+        {
+            return Result.Success();
+        }
+        
         var attributesSet = injectionConfig.Entries
             .Select(o => o.Attribute)
             .ToHashSet();
