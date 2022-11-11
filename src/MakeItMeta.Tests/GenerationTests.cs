@@ -195,6 +195,7 @@ public class GenerationTests
         await Verify(new[]
         {
             result,
+            error,
             newAssembly.GetType("MakeItMeta.TestApp.Executor")?
                 .GetMethods()
                 .Select(o => o.Name)

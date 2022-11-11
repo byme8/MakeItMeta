@@ -5,6 +5,7 @@
         <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PackageId>MakeItMeta.Cli</PackageId>
         <PackAsTool>true</PackAsTool>
         <Description>The MakeItMeta CLI to inject meta classes into assemblies.</Description>
         <AssemblyName>makeitmeta</AssemblyName>
