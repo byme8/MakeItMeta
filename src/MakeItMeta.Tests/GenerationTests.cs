@@ -1,7 +1,7 @@
 using System.Reflection;
 using FluentAssertions;
-using MakeItMeta.Core;
-using MakeItMeta.Core.Results;
+using MakeItMeta.Tools;
+using MakeItMeta.Tools.Results;
 using MakeItMeta.Tests.Core;
 using MakeItMeta.Tests.Data;
 

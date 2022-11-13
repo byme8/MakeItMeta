@@ -9,11 +9,10 @@
         <PackAsTool>true</PackAsTool>
         <Description>The MakeItMeta CLI to inject meta classes into assemblies.</Description>
         <AssemblyName>makeitmeta</AssemblyName>
-        <IsPackable>true</IsPackable>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\MakeItMeta.Core\MakeItMeta.Core.csproj" />
+      <ProjectReference Include="..\MakeItMeta.Tools\MakeItMeta.Tools.csproj" />
     </ItemGroup>
 
     <ItemGroup>

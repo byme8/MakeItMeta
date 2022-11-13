@@ -1,5 +1,5 @@
 
-namespace MakeItMeta.Core;
+namespace MakeItMeta.Tools;
 
 public record InjectionEntry(string Attribute, InjectionTypeEntry[] Types);
 

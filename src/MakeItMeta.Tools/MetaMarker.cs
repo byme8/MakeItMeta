@@ -1,9 +1,9 @@
-﻿using MakeItMeta.Core.Results;
+﻿using MakeItMeta.Tools.Results;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 
-namespace MakeItMeta.Core;
+namespace MakeItMeta.Tools;
 
 public class MetaMaker
 {

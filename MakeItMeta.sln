@@ -6,7 +6,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{AEF5A294-A
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Platforms", "Platforms", "{85D3DC5D-77FB-4E5C-94B8-5685253376DA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MakeItMeta.Core", "src\MakeItMeta.Core\MakeItMeta.Core.csproj", "{D638D94A-8D43-47AD-8BB3-0A961CC519B2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MakeItMeta.Tools", "src\MakeItMeta.Tools\MakeItMeta.Tools.csproj", "{D638D94A-8D43-47AD-8BB3-0A961CC519B2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MakeItMeta.Attributes", "src\MakeItMeta.Attributes\MakeItMeta.Attributes.csproj", "{219C356C-C8C6-4270-ADFD-95E6D649AE05}"
 EndProject

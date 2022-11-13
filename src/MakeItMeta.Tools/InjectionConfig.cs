@@ -1,4 +1,4 @@
-namespace MakeItMeta.Core;
+namespace MakeItMeta.Tools;
 
 public class InjectionConfig
 {

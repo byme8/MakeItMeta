@@ -1,6 +1,6 @@
-namespace MakeItMeta.Core.Results;
+namespace MakeItMeta.Tools.Results;
 
-public struct Unit
+public record Unit
 {
     public static Unit Default { get; } = new Unit();
 }
@@ -42,8 +42,10 @@ public record Error(string Code, string Message)
     public Error WithMessage(string message) => new(Code, message);
 }
 
-public record struct UnwrapErrors(Error[] Errors)
+public readonly record struct UnwrapErrors(Error[] Errors)
 {
+    public Error Error => Errors.First();
+    
     public static implicit operator bool(UnwrapErrors result)
         => result != default;
 }

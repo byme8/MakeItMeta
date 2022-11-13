@@ -4,8 +4,8 @@ using CliFx;
 using CliFx.Attributes;
 using CliFx.Infrastructure;
 using MakeItMeta.Cli.Data;
-using MakeItMeta.Core;
-using MakeItMeta.Core.Results;
+using MakeItMeta.Tools;
+using MakeItMeta.Tools.Results;
 #pragma warning disable CS8618
 
 namespace MakeItMeta.Cli.Commands;

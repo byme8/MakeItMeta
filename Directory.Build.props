@@ -1,6 +1,5 @@
 <Project>
     <PropertyGroup>
-        <IsPackable>false</IsPackable>
         <Authors>Stanislav Silin</Authors>
         <PackageProjectUrl>https://github.com/byme8/MakeItMeta</PackageProjectUrl>
         <RepositoryUrl>https://github.com/byme8/MakeItMeta</RepositoryUrl>
