@@ -146,6 +146,41 @@ public class GenerationTests
     }
 
     [Fact]
+    public async Task OnEnterReturnIsPassedToOnExit()
+    {
+        var config = new InjectionConfig(
+            AdditionalAssemblies(),
+            new[]
+            {
+                new InjectionEntry(
+                    "MakeItMeta.Tests.TestAttribute",
+                    new[]
+                    {
+                        new InjectionTypeEntry(
+                            "MakeItMeta.TestApp.Executor",
+                            new[] { "Execute" })
+                    })
+            });
+
+        var testAssembly = await TestProject.Project.CompileToRealAssemblyAsBytes();
+
+        var maker = new MetaMaker();
+        var (resultAssembly, errors) = maker.MakeItMeta(new Stream[] { testAssembly.AsStream() }, config).Unwrap();
+
+        var newAssembly = Assembly.Load(resultAssembly[0].ToArray());
+
+        var result = newAssembly.Execute();
+        var newAssemblyFullName = newAssembly.FullName!;
+        var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(newAssemblyFullName);
+
+        await Verify(new
+        {
+            calls,
+            errors
+        });
+    }
+
+    [Fact]
     public async Task CompilationWorks()
     {
         var assembly = await TestProject.Project.CompileToRealAssembly();
@@ -166,41 +201,6 @@ public class GenerationTests
 
         var result = newAssembly.Execute();
         result.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task InjectableMethodIsDuplicated()
-    {
-        var assembly = await TestProject.Project.CompileToRealAssemblyAsBytes();
-        var memoryStream = new MemoryStream(assembly);
-
-        var config = new InjectionConfig(
-            AdditionalAssemblies(),
-            new[]
-            {
-                new InjectionEntry(
-                    "MakeItMeta.Tests.TestAttribute",
-                    new[]
-                    {
-                        new InjectionTypeEntry("MakeItMeta.TestApp.Executor", new[] { "Execute" })
-                    })
-
-            });
-
-        var maker = new MetaMaker();
-        var (resultAssembly, error) = maker.MakeItMeta(new Stream[] { memoryStream }, config).Unwrap();
-        var newAssembly = Assembly.Load(resultAssembly[0].ToArray());
-        var result = newAssembly.Execute();
-
-        await Verify(new[]
-        {
-            result,
-            error,
-            newAssembly.GetType("MakeItMeta.TestApp.Executor")?
-                .GetMethods()
-                .Select(o => o.Name)
-                .ToArray()
-        });
     }
 
 }

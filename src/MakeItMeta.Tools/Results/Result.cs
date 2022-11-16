@@ -44,8 +44,6 @@ public record Error(string Code, string Message)
 
 public readonly record struct UnwrapErrors(Error[] Errors)
 {
-    public Error Error => Errors.First();
-    
     public static implicit operator bool(UnwrapErrors result)
         => result != default;
 }

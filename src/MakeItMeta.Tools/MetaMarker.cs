@@ -81,54 +81,52 @@ public class MetaMaker
                 return new Error("METHOD_IS_NOT_SUPPORTED", message);
             }
 
-            var newMethodName = $"<>InternalMetaCopy{method.Name}";
-            var copyMethod = CopyMethodWithNewName(newMethodName, method);
-
             var typeMetaAttributes = method.DeclaringType.CustomAttributes
                 .Where(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute")
-                .Select(o => o.AttributeType)
                 .ToArray();
 
             var methodMetaAttributes = method.CustomAttributes
                 .Where(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute")
-                .Select(o => o.AttributeType)
                 .ToArray();
 
-            foreach (var metaAttribute in typeMetaAttributes.Concat(methodMetaAttributes).DistinctBy(o => o.Name))
+            foreach (var metaAttribute in typeMetaAttributes.Concat(methodMetaAttributes).DistinctBy(o => o.AttributeType.Name))
             {
-                var attributeType = metaAttribute.Resolve();
-                var importedAttribute = method.Module.ImportReference(attributeType);
-                var constructor = targetModule.ImportReference(attributeType.GetConstructors().First());
+                var attributeType = metaAttribute.AttributeType.Resolve();
                 var onEntryMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnEntry"));
                 var onExitMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnExit"));
+                var onEntryReturnType = method.Module.ImportReference(onEntryMethod.ReturnType.Resolve());
+                var onEnterVoidReturn = onEntryReturnType.FullName == "System.Void";
+                if (!onEnterVoidReturn)
+                {
+                    var onExitAcceptType = method.Module.ImportReference(onExitMethod.Parameters.Last().ParameterType.Resolve());
+                    if (onEntryReturnType.FullName != onExitAcceptType.FullName)
+                    {
+                        return new Error(
+                            "ATTRIBUTE_NOT_FOLLOW_CONVENTION",
+                            "The OnExit method has to accept the return value from OnEnter as last parameter");
+                    }
+                }
+
                 var parameters = method.Parameters
                     .Where(o => !o.IsOut || !o.ParameterType.IsByReference)
                     .ToArray();
 
-                method.Body.Instructions.Clear();
                 var il = method.Body.GetILProcessor();
-                il.Append(il.Create(OpCodes.Ldarg_0));
-                foreach (var parameter in parameters)
-                {
-                    il.Append(il.Create(OpCodes.Ldarg, parameter));
-                }
-
-                il.Append(il.Create(OpCodes.Call, copyMethod));
-                il.Append(il.Create(OpCodes.Ret));
 
                 var firstInstruction = method.Body.Instructions.First();
                 var lastInstruction = method.Body.Instructions.Last();
 
-                var attributeVariable = new VariableDefinition(importedAttribute);
-                method.Body.Variables.Add(attributeVariable);
+                var onEnterReturnVariable = onEnterVoidReturn
+                    ? null
+                    : new VariableDefinition(onEntryReturnType);
 
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Newobj, constructor));
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Stloc, attributeVariable));
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldloc, attributeVariable));
-                il.InsertBefore(firstInstruction,
-                    method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull));
+                if (onEnterReturnVariable is not null)
+                {
+                    method.Body.Variables.Add(onEnterReturnVariable);
+                }
+
+                il.InsertBefore(firstInstruction, method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull));
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
-
 
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, parameters.Length));
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Newarr, targetModule.ImportReference(typeof(object))));
@@ -141,45 +139,29 @@ public class MetaMaker
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Stelem_Ref));
                 }
 
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Callvirt, onEntryMethod));
+                il.InsertBefore(firstInstruction, il.Create(OpCodes.Call, onEntryMethod));
 
-                var onExitInstruction = il.Create(OpCodes.Ldloc, attributeVariable);
+                if (onEnterReturnVariable is not null)
+                {
+                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Stloc, onEnterReturnVariable));
+                }
+
+                var onExitInstruction = method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull);
                 il.InsertBefore(lastInstruction, onExitInstruction);
-                il.InsertBefore(lastInstruction,
-                    method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull));
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
-                il.InsertBefore(lastInstruction, il.Create(OpCodes.Callvirt, onExitMethod));
+
+                if (onEnterReturnVariable is not null)
+                {
+                    il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldloc, onEnterReturnVariable));
+                }
+
+                il.InsertBefore(lastInstruction, il.Create(OpCodes.Call, onExitMethod));
+
+                ReplaceJumps(method.Body);
             }
         }
 
         return Result.Success();
-    }
-
-    private MethodDefinition CopyMethodWithNewName(string newMethodName, MethodDefinition method)
-    {
-        var copyMethod = new MethodDefinition(newMethodName, method.Attributes, method.ReturnType);
-        foreach (var parameter in method.Parameters)
-        {
-            copyMethod.Parameters.Add(new ParameterDefinition(parameter.Name, parameter.Attributes, parameter.ParameterType));
-        }
-
-        foreach (var variable in method.Body.Variables)
-        {
-            copyMethod.Body.Variables.Add(new VariableDefinition(variable.VariableType));
-        }
-
-        foreach (var instruction in method.Body.Instructions)
-        {
-            copyMethod.Body.Instructions.Add(instruction);
-        }
-
-        foreach (var exceptionHandler in method.Body.ExceptionHandlers)
-        {
-            copyMethod.Body.ExceptionHandlers.Add(exceptionHandler);
-        }
-
-        method.DeclaringType.Methods.Add(copyMethod);
-        return copyMethod;
     }
 
     private static bool MethodThatHasMetaAttributeOrContainingTypeHasMetaAttribute(MethodDefinition method)
@@ -193,7 +175,7 @@ public class MetaMaker
         {
             return Result.Success();
         }
-        
+
         var attributesSet = injectionConfig.Entries
             .Select(o => o.Attribute)
             .ToHashSet();
@@ -262,5 +244,106 @@ public class MetaMaker
         }
 
         return Result.Success();
+    }
+
+    void ReplaceJumps(MethodBody methodBody)
+    {
+        foreach (var instruction in methodBody.Instructions)
+        {
+            if (instruction.OpCode == OpCodes.Br_S)
+            {
+                instruction.OpCode = OpCodes.Br;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Leave_S)
+            {
+                instruction.OpCode = OpCodes.Leave;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Beq_S)
+            {
+                instruction.OpCode = OpCodes.Beq;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Bne_Un_S)
+            {
+                instruction.OpCode = OpCodes.Bne_Un;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Bge_S)
+            {
+                instruction.OpCode = OpCodes.Bge;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Bge_Un_S)
+            {
+                instruction.OpCode = OpCodes.Bge_Un;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Bgt_S)
+            {
+                instruction.OpCode = OpCodes.Bgt;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Bgt_Un_S)
+            {
+                instruction.OpCode = OpCodes.Bgt_Un;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Ble_S)
+            {
+                instruction.OpCode = OpCodes.Ble;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Ble_Un_S)
+            {
+                instruction.OpCode = OpCodes.Ble_Un;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Blt_S)
+            {
+                instruction.OpCode = OpCodes.Blt;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Blt_Un_S)
+            {
+                instruction.OpCode = OpCodes.Blt_Un;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Bne_Un_S)
+            {
+                instruction.OpCode = OpCodes.Bne_Un;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Brfalse_S)
+            {
+                instruction.OpCode = OpCodes.Brfalse;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Brtrue_S)
+            {
+                instruction.OpCode = OpCodes.Brtrue;
+                continue;
+            }
+
+            if (instruction.OpCode == OpCodes.Beq_S)
+            {
+                instruction.OpCode = OpCodes.Beq;
+            }
+        }
     }
 }
