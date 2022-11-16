@@ -5,8 +5,6 @@ public class TestAttribute : MetaAttribute
 {
     public static Dictionary<string, List<Entry>> MethodsByAssembly { get; set; } = new();
 
-    public static int Count { get; set; }
-
     public static Entry? OnEntry(object? @this, string methodName, object[]? parameters)
     {
         if (@this is null)
