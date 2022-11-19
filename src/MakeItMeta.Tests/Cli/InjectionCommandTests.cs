@@ -120,12 +120,12 @@ public class InjectionCommandTests
                 
                 public class TestAppMetaAttribute : MetaAttribute
                 {
-                    public static void OnEntry(object? @this, string methodName, object?[]? parameters)
+                    public static void OnEntry(object? @this, string assemblyFullName, string methodName, object?[]? parameters)
                     {
                        
                     }
 
-                    public static void OnExit(object? @this, string methodName)
+                    public static void OnExit(object? @this, string assemblyFullName, string methodName)
                     {
 
                     }

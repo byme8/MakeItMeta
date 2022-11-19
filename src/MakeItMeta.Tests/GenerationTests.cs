@@ -179,6 +179,34 @@ public class GenerationTests
             errors
         });
     }
+    
+    [Fact]
+    public async Task CanRewriteTheWholeAssembly()
+    {
+        var config = new InjectionConfig(
+            AdditionalAssemblies(),
+            new[]
+            {
+                new InjectionEntry("MakeItMeta.Tests.TestAttribute", null, true)
+            });
+
+        var testAssembly = await TestProject.Project.CompileToRealAssemblyAsBytes();
+
+        var maker = new MetaMaker();
+        var (resultAssembly, errors) = maker.MakeItMeta(new Stream[] { testAssembly.AsStream() }, config).Unwrap();
+
+        var newAssembly = Assembly.Load(resultAssembly[0].ToArray());
+
+        var result = newAssembly.Execute();
+        var newAssemblyFullName = newAssembly.FullName!;
+        var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(newAssemblyFullName);
+
+        await Verify(new
+        {
+            calls,
+            errors
+        });
+    }
 
     [Fact]
     public async Task CompilationWorks()

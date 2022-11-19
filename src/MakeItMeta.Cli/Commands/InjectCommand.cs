@@ -53,7 +53,7 @@ public class InjectCommand : ICommand
                     .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
                     .ToArray();
 
-                return new InjectionEntry(att.Name!, entries);
+                return new InjectionEntry(att.Name!, entries, att.All);
             })
             .ToArray();
 

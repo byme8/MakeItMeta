@@ -63,7 +63,9 @@ public class MetaMaker
 
         foreach (var method in methodsWithMetaAttributes)
         {
+            var targetModuleName = targetModule.Assembly.FullName;
             var fullMethodName = $"{method.DeclaringType.FullName}.{method.Name}";
+
             if (method.Body is null)
             {
                 return new Error("METHOD_MISSING_BODY", $"The method '{fullMethodName}' missing body");
@@ -75,7 +77,7 @@ public class MetaMaker
             }
 
             if (method.Parameters.Any(
-                    o => o.IsOut || o.ParameterType.IsByReference || o.ParameterType.IsGenericInstance))
+                    o => o.IsOut || o.ParameterType.IsByReference))
             {
                 var message = $"At the moment method '{fullMethodName}' is not supported. It has generics or by references parameters";
                 return new Error("METHOD_IS_NOT_SUPPORTED", message);
@@ -89,7 +91,18 @@ public class MetaMaker
                 .Where(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute")
                 .ToArray();
 
-            foreach (var metaAttribute in typeMetaAttributes.Concat(methodMetaAttributes).DistinctBy(o => o.AttributeType.Name))
+            var metaAttributes = typeMetaAttributes
+                .Concat(methodMetaAttributes)
+                .DistinctBy(o => o.AttributeType.Name)
+                .ToArray();
+
+            var attributeValidationError = ValidateAttributes(metaAttributes).Unwrap();
+            if (attributeValidationError)
+            {
+                return attributeValidationError;
+            }
+
+            foreach (var metaAttribute in metaAttributes)
             {
                 var attributeType = metaAttribute.AttributeType.Resolve();
                 var onEntryMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnEntry"));
@@ -126,6 +139,7 @@ public class MetaMaker
                 }
 
                 il.InsertBefore(firstInstruction, method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull));
+                il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, targetModuleName));
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
 
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, parameters.Length));
@@ -148,6 +162,7 @@ public class MetaMaker
 
                 var onExitInstruction = method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull);
                 il.InsertBefore(lastInstruction, onExitInstruction);
+                il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, targetModuleName));
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
 
                 if (onEnterReturnVariable is not null)
@@ -161,6 +176,73 @@ public class MetaMaker
             }
         }
 
+        return Result.Success();
+    }
+
+    private Result ValidateAttributes(CustomAttribute[] metaAttributes)
+    {
+        foreach (var metaAttribute in metaAttributes)
+        {
+            var onEntry = metaAttribute.AttributeType.Resolve()
+                .GetMethods()
+                .First(o => o.Name == "OnEntry");
+
+            var onExit = metaAttribute.AttributeType.Resolve()
+                .GetMethods()
+                .First(o => o.Name == "OnExit");
+
+            var parameters = new[]
+            {
+                (Name: "this", Type: "System.Object"),
+                (Name: "assemblyFullName", Type: "System.String"),
+                (Name: "methodName", Type: "System.String"),
+            };
+
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                var onEntryArgument = parameters[i];
+                if (onEntry.Parameters[i].Name != onEntryArgument.Name ||
+                    onEntry.Parameters[i].ParameterType.FullName != onEntryArgument.Type)
+                {
+                    return new Error(
+                        "INVALID_META_ATTRIBUTE",
+                        $"[{metaAttribute.AttributeType.FullName}] The OnEntry '{i}' parameter has to be '{onEntryArgument.Type} {onEntryArgument.Name}'");
+                }
+            }
+            
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                var onExitParameter = parameters[i];
+                if (onExit.Parameters[i].Name != onExitParameter.Name ||
+                    onExit.Parameters[i].ParameterType.FullName != onExitParameter.Type)
+                {
+                    return new Error(
+                        "INVALID_META_ATTRIBUTE",
+                        $"[{metaAttribute.AttributeType.FullName}] The OnExit '{i}' parameter has to be '{onExitParameter.Type} {onExitParameter.Name}'");
+                }
+            }
+
+            if (onEntry.ReturnType.FullName != "System.Void")
+            {
+                if (onExit.Parameters.Count != 4)
+                {
+                    return new Error(
+                        "INVALID_META_ATTRIBUTE",
+                        $"[{metaAttribute.AttributeType.FullName}] The OnEnter returns '{onEntry.ReturnType.FullName}'. The OnExit has to accept is as last parameter.");
+
+                }
+
+                var last = onExit.Parameters.Last();
+                if (last.ParameterType.FullName != onEntry.ReturnType.FullName)
+                {
+                    return new Error(
+                        "INVALID_META_ATTRIBUTE",
+                        $"[{metaAttribute.AttributeType.FullName}] The OnEnter returns '{onEntry.ReturnType.FullName}'. The OnExit has to accept is as last parameter.");
+
+                }
+            }
+        }
+        
         return Result.Success();
     }
 
@@ -186,17 +268,21 @@ public class MetaMaker
 
         foreach (var entry in injectionConfig.Entries)
         {
-            var entriesByType = entry.Types
+            var entriesByType = entry.Types?
                 .ToDictionary(o => o.Name);
 
             var typesToProcess = types
-                .Where(o => entriesByType.ContainsKey(o.FullName))
+                .Where(o => entriesByType?.ContainsKey(o.FullName) ?? true)
+                .Where(o => !o.FullName.Contains('<'))
+                .Where(o => !o.FullName.StartsWith("System."))
+                .Where(o => !o.FullName.StartsWith("Microsoft."))
                 .ToDictionary(o => o.FullName);
 
-            var missingTypes = entriesByType
-                .Where(o => !typesToProcess.ContainsKey(o.Key))
-                .Select(o => o.Key)
-                .ToArray();
+            var missingTypes = entriesByType?
+                                   .Where(o => !typesToProcess.ContainsKey(o.Key))
+                                   .Select(o => o.Key)
+                                   .ToArray()
+                               ?? Array.Empty<string>();
 
             if (missingTypes.Any())
             {
@@ -205,7 +291,11 @@ public class MetaMaker
                     .ToArray();
             }
 
-            foreach (var typeEntry in entry.Types)
+            var entryTypes = entry.Types ?? typesToProcess
+                .Select(o => new InjectionTypeEntry(o.Key, null))
+                .ToArray();
+
+            foreach (var typeEntry in entryTypes)
             {
                 if (!metaAttributes.TryGetValue(entry.Attribute, out var injectableAttribute))
                 {

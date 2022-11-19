@@ -15,6 +15,8 @@ public class InjectionAttributeInput
     public string? Name { get; set; }
 
     public InjectionTypeEntryInput[]? Types { get; set; }
+
+    public bool All { get; set; }
 }
 
 public class InjectionTypeEntryInput

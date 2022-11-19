@@ -5,16 +5,8 @@ public class TestAttribute : MetaAttribute
 {
     public static Dictionary<string, List<Entry>> MethodsByAssembly { get; set; } = new();
 
-    public static Entry? OnEntry(object? @this, string methodName, object[]? parameters)
+    public static Entry? OnEntry(object? @this, string assemblyFullName, string methodName, object[]? parameters)
     {
-        if (@this is null)
-        {
-            return null;
-        }
-
-        var assembly = @this.GetType().Assembly;
-        var assemblyFullName = assembly.FullName!;
-
         if (!MethodsByAssembly.ContainsKey(assemblyFullName))
         {
             MethodsByAssembly.Add(assemblyFullName, new List<Entry>());
@@ -31,16 +23,8 @@ public class TestAttribute : MetaAttribute
         return entry;
     }
 
-    public static void OnExit(object? @this, string methodName, Entry? entry)
+    public static void OnExit(object? @this, string assemblyFullName, string methodName, Entry? entry)
     {
-        if (@this is null)
-        {
-            return;
-        }
-
-        var assembly = @this.GetType().Assembly;
-        var assemblyFullName = assembly.FullName!;
-
         if (!MethodsByAssembly.ContainsKey(assemblyFullName))
         {
             MethodsByAssembly.Add(assemblyFullName, new List<Entry>());
