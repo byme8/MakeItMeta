@@ -297,6 +297,11 @@ public class MetaMaker
 
             foreach (var typeEntry in entryTypes)
             {
+                if (metaAttributes.TryGetValue(typeEntry.Name, out var _))
+                {
+                    continue;
+                }
+                
                 if (!metaAttributes.TryGetValue(entry.Attribute, out var injectableAttribute))
                 {
                     return Result.Error(new Error("FAILED_TO_FIND_ATTRIBUTE", $"Failed to find meta attribute '{entry.Attribute}'"));
