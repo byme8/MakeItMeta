@@ -5,6 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
+        <Description>Contains meta attrbiutes for MakeItMeta.</Description>
     </PropertyGroup>
 
 </Project>

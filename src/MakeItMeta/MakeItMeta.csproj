@@ -8,7 +8,7 @@
 
     <PropertyGroup>
         <PackageId>MakeItMeta</PackageId>
-        <Description>Introduces meta programing programing for .Net</Description>
+        <Description>The MakeItMeta helps to inject additional logic after compilation.</Description>
         <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_AddAnalyzersToOutput</TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
