@@ -1,3 +1,8 @@
-﻿The types do not contain names inside the attributes
+﻿{
+  outputString: ,
+  errorString:
+The types do not contain names inside the attributes
 - MakeItMeta.Tests.TestAttribute
 
+
+}

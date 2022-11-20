@@ -1,1 +1,6 @@
-﻿Config file does not contain any target assemblies
+﻿{
+  outputString: ,
+  errorString:
+Config file does not contain any target assemblies
+
+}

@@ -53,6 +53,27 @@ public class InjectionCommandTests
         },
         new[]
         {
+            "AttributeWithoutTypesButWithAll",
+            """
+            {
+                "targetAssemblies": [],
+                "additionalAssemblies": 
+                [
+                    "MakeItMeta.Attributes.dll",
+                    "MakeItMeta.Tests.dll"
+                ],
+                "attributes": 
+                [
+                    {
+                        "name": "MakeItMeta.Tests.TestAttribute",
+                        "all": true
+                    }
+                ]
+            }
+            """
+        },
+        new[]
+        {
             "TypeWithoutName",
             """
             {
@@ -95,8 +116,13 @@ public class InjectionCommandTests
 
         await command.ExecuteAsync(console);
 
-        var errorString = console.ReadErrorString();
-        await Verify(errorString)
+        var output = console.ReadOutputString();
+        var error = console.ReadErrorString();
+        await Verify(new
+            {
+                outputString = output,
+                errorString = error
+            })
             .UseParameters(userCase)
             .Track(tempTargetAssemblyFile)
             .Track(tempConfigFile);
@@ -112,10 +138,11 @@ public class InjectionCommandTests
         }
         """;
 
-        var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll") ;
+        var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll");
         var projectWithReferenceToMetaReference = await TestProject.Project
             .AddMetadataReference(metaAttributesReference)
-            .AddDocument("TestAppMetaAttribute.cs", """
+            .AddDocument("TestAppMetaAttribute.cs",
+                """
                 using MakeItMeta.Attributes;
                 
                 public class TestAppMetaAttribute : MetaAttribute
@@ -133,7 +160,7 @@ public class InjectionCommandTests
                 """)
             .Project
             .ReplacePartOfDocumentAsync("Program.cs", ("public object? Execute()", "[TestAppMeta]public object? Execute()"));
-        
+
         var testAssembly = await projectWithReferenceToMetaReference.CompileToRealAssemblyAsBytes();
         var tempTargetAssemblyFile = Path.GetTempFileName();
         await File.WriteAllBytesAsync(tempTargetAssemblyFile, testAssembly);

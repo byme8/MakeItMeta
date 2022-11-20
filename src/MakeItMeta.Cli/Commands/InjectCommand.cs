@@ -49,7 +49,7 @@ public class InjectCommand : ICommand
         var attributes = inputConfig.Attributes?
             .Select(att =>
             {
-                var entries = att.Types!
+                var entries = att.Types?
                     .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
                     .ToArray();
 
@@ -159,7 +159,7 @@ public class InjectCommand : ICommand
         }
 
         var attributeWithoutType = inputConfig.Attributes
-            .Where(x => x.Types is null)
+            .Where(x => x.Types is null && !x.All)
             .ToArray();
 
         if (attributeWithoutType.Any())
@@ -176,8 +176,9 @@ public class InjectCommand : ICommand
         }
 
         var typeWithoutName = inputConfig.Attributes
-            .SelectMany(attribute => attribute.Types!
-                .Select(type => (AttrbuteName: attribute.Name, TypeName: type.Name)).ToArray())
+            .SelectMany(attribute => attribute.Types?
+                .Select(type => (Attrbute: attribute, TypeName: type.Name))
+                .ToArray() ?? Array.Empty<(InjectionAttributeInput Attrbute, string? TypeName)>())
             .Where(x => x.TypeName is null)
             .ToArray();
 
@@ -187,7 +188,7 @@ public class InjectCommand : ICommand
             stringBuilder.AppendLine("The types do not contain names inside the attributes");
             foreach (var attribute in typeWithoutName)
             {
-                stringBuilder.AppendLine($"- {attribute.AttrbuteName}");
+                stringBuilder.AppendLine($"- {attribute.Attrbute.Name}");
             }
             
             return configValidationFailed

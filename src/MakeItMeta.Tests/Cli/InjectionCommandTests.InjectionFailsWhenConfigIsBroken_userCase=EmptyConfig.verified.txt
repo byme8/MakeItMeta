@@ -1,1 +1,6 @@
-﻿Failed parse config file at {tempConfigFile}
+﻿{
+  outputString: ,
+  errorString:
+Failed parse config file at {tempConfigFile}
+
+}
