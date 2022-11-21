@@ -187,7 +187,7 @@ public class GenerationTests
             AdditionalAssemblies(),
             new[]
             {
-                new InjectionEntry("MakeItMeta.Tests.TestAttribute", null, true)
+                new InjectionEntry("MakeItMeta.Tests.TestAttribute", null, null)
             });
 
         var testAssembly = await TestProject.Project.CompileToRealAssemblyAsBytes();

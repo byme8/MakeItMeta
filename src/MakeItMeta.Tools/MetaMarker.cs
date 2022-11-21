@@ -209,7 +209,7 @@ public class MetaMaker
                         $"[{metaAttribute.AttributeType.FullName}] The OnEntry '{i}' parameter has to be '{onEntryArgument.Type} {onEntryArgument.Name}'");
                 }
             }
-            
+
             for (int i = 0; i < parameters.Length; i++)
             {
                 var onExitParameter = parameters[i];
@@ -242,7 +242,7 @@ public class MetaMaker
                 }
             }
         }
-        
+
         return Result.Success();
     }
 
@@ -266,79 +266,119 @@ public class MetaMaker
             .Where(o => attributesSet.Contains(o.FullName))
             .ToDictionary(o => o.FullName);
 
+        var allMethods = types
+            .Where(o => !o.FullName.Contains('<'))
+            .Where(o => !o.FullName.StartsWith("System."))
+            .Where(o => !o.FullName.StartsWith("Microsoft."))
+            .Where(o => !metaAttributes.ContainsKey(o.FullName))
+            .SelectMany(o => o.Methods)
+            .ToArray();
+
+        var allMethodsByType = allMethods
+            .GroupBy(o => o.DeclaringType.FullName)
+            .ToDictionary(o => o.Key, o => o.ToArray());
+
         foreach (var entry in injectionConfig.Entries)
         {
-            var entriesByType = entry.Types?
-                .ToDictionary(o => o.Name);
-
-            var typesToProcess = types
-                .Where(o => entriesByType?.ContainsKey(o.FullName) ?? true)
-                .Where(o => !o.FullName.Contains('<'))
-                .Where(o => !o.FullName.StartsWith("System."))
-                .Where(o => !o.FullName.StartsWith("Microsoft."))
-                .ToDictionary(o => o.FullName);
-
-            var missingTypes = entriesByType?
-                                   .Where(o => !typesToProcess.ContainsKey(o.Key))
-                                   .Select(o => o.Key)
-                                   .ToArray()
-                               ?? Array.Empty<string>();
-
-            if (missingTypes.Any())
+            var attributeTypeDefinition = metaAttributes.GetValueOrDefault(entry.Attribute);
+            if (attributeTypeDefinition is null)
             {
-                return missingTypes
-                    .Select(o => new Error("MISSING_TYPE", $"The type '{o}' is missing"))
+                return Result.Error(new Error("FAILED_TO_FIND_ATTRIBUTE", $"Failed to find meta attribute '{entry.Attribute}'"));
+            }
+
+            var currentMethods = allMethods.ToArray();
+            if (entry.Add is not null)
+            {
+                var (methodsToAdd, error) = ExtractMethods(entry.Add, allMethodsByType).Unwrap();
+                if (error)
+                {
+                    return error;
+                }
+
+                currentMethods = methodsToAdd.ToArray();
+            }
+
+            if (entry.Ignore is not null)
+            {
+                var (methodsToIgnore, error) = ExtractMethods(entry.Ignore, allMethodsByType).Unwrap();
+                if (error)
+                {
+                    return error;
+                }
+
+                var methodToIgnoreSet = methodsToIgnore.ToHashSet();
+                currentMethods = currentMethods
+                    .Where(o => !methodToIgnoreSet.Contains(o))
                     .ToArray();
             }
 
-            var entryTypes = entry.Types ?? typesToProcess
-                .Select(o => new InjectionTypeEntry(o.Key, null))
-                .ToArray();
-
-            foreach (var typeEntry in entryTypes)
+            var attributeConstructor = attributeTypeDefinition.GetConstructors().First();
+            foreach (var method in currentMethods)
             {
-                if (metaAttributes.TryGetValue(typeEntry.Name, out var _))
-                {
-                    continue;
-                }
-                
-                if (!metaAttributes.TryGetValue(entry.Attribute, out var injectableAttribute))
-                {
-                    return Result.Error(new Error("FAILED_TO_FIND_ATTRIBUTE", $"Failed to find meta attribute '{entry.Attribute}'"));
-                }
-
-                var typeDefinition = typesToProcess[typeEntry.Name];
-                var methodDefinition = injectableAttribute.GetConstructors().First();
-                var attributeConstructor = typeDefinition.Module.ImportReference(methodDefinition);
-                if (typeEntry.Methods is null)
-                {
-                    typeDefinition.CustomAttributes.Add(new CustomAttribute(attributeConstructor));
-                    continue;
-                }
-
-                var injectableMethods = typeDefinition.Methods
-                    .IntersectBy(typeEntry.Methods, o => o.Name)
-                    .ToDictionary(o => o.Name);
-
-                var missingMethods = typeEntry.Methods
-                    .Where(o => !injectableMethods.ContainsKey(o))
-                    .ToArray();
-
-                if (missingMethods.Any())
-                {
-                    return missingMethods
-                        .Select(o => new Error("MISSING_METHOD", $"The method '{o}' is missing in type '{typeEntry.Name}'"))
-                        .ToArray();
-                }
-
-                foreach (var injectableMethod in injectableMethods.Values)
-                {
-                    injectableMethod.CustomAttributes.Add(new CustomAttribute(attributeConstructor));
-                }
+                var typeEntryDefinition = method.DeclaringType;
+                var attributeConstructorReference = typeEntryDefinition.Module.ImportReference(attributeConstructor);
+                method.CustomAttributes.Add(new CustomAttribute(attributeConstructorReference));
             }
+
         }
 
         return Result.Success();
+    }
+
+    private static Result<MethodDefinition[]> ExtractMethods(InjectionTypeEntry[] entries, Dictionary<string, MethodDefinition[]> allMethodsByType)
+    {
+        var missingTypes = entries
+            .Where(o => !allMethodsByType.ContainsKey(o.Name))
+            .ToArray();
+
+        if (missingTypes.Any())
+        {
+            return missingTypes
+                .Select(o => new Error("MISSING_TYPE", $"The type '{o.Name}' is missing"))
+                .ToArray();
+        }
+
+        var methods = entries
+            .Select(o =>
+            {
+                var typeMethods = allMethodsByType[o.Name];
+                if (o.Methods?.Any() ?? false)
+                {
+                    var methodNames = typeMethods.Select(oo => oo.Name).ToArray();
+                    var missingMethods = o.Methods
+                        .Where(oo => !methodNames.Contains(oo))
+                        .ToArray();
+
+                    if (missingMethods.Any())
+                    {
+                        var errors = missingMethods
+                            .Select(oo => new Error("MISSING_METHOD", $"The method '{oo}' is missing in type '{o.Name}'"))
+                            .ToArray();
+
+                        return Result.Error<MethodDefinition[]>(errors);
+                    }
+
+                    typeMethods = typeMethods
+                        .Where(oo => o.Methods.Contains(oo.Name))
+                        .ToArray();
+
+                    return Result.Success(typeMethods);
+                }
+
+                return Result.Success(typeMethods);
+            })
+            .ToArray();
+
+        var (methodDefinitions, errors) = methods.Unwrap();
+
+        if (errors)
+        {
+            return errors;
+        }
+        
+        return methodDefinitions
+            .SelectMany(o => o)
+            .ToArray();
     }
 
     void ReplaceJumps(MethodBody methodBody)

@@ -15,7 +15,8 @@ public class InjectCommand : ICommand
 {
     private JsonSerializerOptions options = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        AllowTrailingCommas = true
     };
 
     [CommandOption("config", 'c', Description = "The injection configuration file.")]
@@ -33,14 +34,14 @@ public class InjectCommand : ICommand
         var (inputConfig, error) = ReadConfig(json).Unwrap();
         if (error)
         {
-            await console.Error.WriteLineAsync(error.Errors.First().Message);
+            await WriteError(console, error);
             return;
         }
 
         var validationError = ValidateInputConfig(console, inputConfig).Unwrap();
         if (validationError)
         {
-            await console.Error.WriteLineAsync(validationError.Errors.First().Message);
+            await WriteError(console, validationError);
             return;
         }
 
@@ -49,11 +50,15 @@ public class InjectCommand : ICommand
         var attributes = inputConfig.Attributes?
             .Select(att =>
             {
-                var entries = att.Types?
+                var add = att.Add?
+                    .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
+                    .ToArray();
+                
+                var ignore = att.Ignore?
                     .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
                     .ToArray();
 
-                return new InjectionEntry(att.Name!, entries, att.All);
+                return new InjectionEntry(att.Name!, add, ignore);
             })
             .ToArray();
 
@@ -105,6 +110,14 @@ public class InjectCommand : ICommand
         await console.Output.WriteLineAsync("Done!");
     }
 
+    private async Task WriteError(IConsole console, UnwrapErrors errorWrap)
+    {
+        foreach (var error in errorWrap.Errors)
+        {
+            await console.Error.WriteLineAsync(error.Message);
+        }
+    }
+
     private Result<InjectionConfigInput> ReadConfig(string json)
     {
         try
@@ -116,9 +129,13 @@ public class InjectCommand : ICommand
             }
             return inputConfig;
         }
-        catch
+        catch(Exception ex)
         {
-            return new Error("FAILED_TO_PARSE_CONFIG", "Failed parse config file at " + Config);
+            return new[]
+            {
+                new Error("FAILED_TO_PARSE_CONFIG", "Failed parse config file at " + Config),
+                new Error("FAILED_TO_PARSE_CONFIG", ex.Message),
+            };
         }
     }
 
@@ -157,26 +174,9 @@ public class InjectCommand : ICommand
         {
             return Result.Success();
         }
-
-        var attributeWithoutType = inputConfig.Attributes
-            .Where(x => x.Types is null && !x.All)
-            .ToArray();
-
-        if (attributeWithoutType.Any())
-        {
-            var stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine("The following attributes do not contain any types");
-            foreach (var attribute in attributeWithoutType)
-            {
-                stringBuilder.AppendLine($"- {attribute.Name}");
-            }
-            
-            return configValidationFailed
-                .WithMessage(stringBuilder.ToString());
-        }
-
+        
         var typeWithoutName = inputConfig.Attributes
-            .SelectMany(attribute => attribute.Types?
+            .SelectMany(attribute => attribute.Add?
                 .Select(type => (Attrbute: attribute, TypeName: type.Name))
                 .ToArray() ?? Array.Empty<(InjectionAttributeInput Attrbute, string? TypeName)>())
             .Where(x => x.TypeName is null)

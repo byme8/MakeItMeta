@@ -28,3 +28,11 @@ public class Provider
         return new Executor();
     }
 }
+
+public class Log
+{
+    public static void Write()
+    {
+        Console.WriteLine("log"); 
+    }
+}

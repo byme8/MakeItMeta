@@ -13,12 +13,14 @@ public record Result
 
     public static Result Error(params Error[] errors) => new ErrorResult<Unit>(errors);
 
+    public static Result<T> Error<T>(params Error[] errors) => new ErrorResult<T>(errors);
+
     public static implicit operator Result(Error[] value)
         => new ErrorResult<Unit>(value);
-    
+
     public static implicit operator Result(Error value)
         => new ErrorResult<Unit>(value);
-    
+
     public static implicit operator Result(UnwrapErrors errors)
         => new ErrorResult<Unit>(errors.Errors);
 }
@@ -33,7 +35,7 @@ public record Result<T> : Result
 
     public static implicit operator Result<T>(Error[] value)
         => new ErrorResult<T>(value);
-    
+
     public static implicit operator Result<T>(UnwrapErrors errors)
         => new ErrorResult<T>(errors.Errors);
 }
@@ -60,14 +62,37 @@ public interface IErrorResult
 
 public static class ResultExtensions
 {
-    public static (T Value, UnwrapErrors) Unwrap<T>(this Result<T> result)
+    public static (T Value, UnwrapErrors Error) Unwrap<T>(this Result<T> result)
         => result switch
         {
             Success<T> success => (success.Value, default),
             ErrorResult<T> errorResult => (default!, new UnwrapErrors(errorResult.Errors)),
             _ => throw new ArgumentOutOfRangeException(nameof(result), result, null)
         };
-    
+
+    public static (T[] Value, UnwrapErrors Error) Unwrap<T>(this IEnumerable<Result<T>> result)
+    {
+        var unwraps = result
+            .Select(o => o.Unwrap())
+            .ToArray();
+
+        if (unwraps.Any(o => o.Error))
+        {
+            var errors = unwraps
+                .Where(o => o.Error)
+                .SelectMany(o => o.Error.Errors)
+                .ToArray();
+
+            return (default!, new UnwrapErrors(errors));
+        }
+
+        var results = unwraps
+            .Select(o => o.Value)
+            .ToArray();
+        
+        return (results, default);
+    }
+
     public static UnwrapErrors Unwrap(this Result result)
         => result switch
         {

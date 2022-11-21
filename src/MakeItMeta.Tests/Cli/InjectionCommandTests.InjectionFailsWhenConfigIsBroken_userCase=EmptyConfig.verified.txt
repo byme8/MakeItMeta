@@ -2,5 +2,6 @@
   outputString: ,
   errorString:
 Failed parse config file at {tempConfigFile}
+The input does not contain any JSON tokens. Expected the input to start with a valid JSON token, when isFinalBlock is true. Path: $ | LineNumber: 0 | BytePositionInLine: 0.
 
 }

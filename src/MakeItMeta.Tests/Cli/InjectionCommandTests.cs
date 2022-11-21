@@ -33,26 +33,6 @@ public class InjectionCommandTests
         },
         new[]
         {
-            "AttributeWithoutTypes",
-            """
-            {
-                "targetAssemblies": [],
-                "additionalAssemblies": 
-                [
-                    "MakeItMeta.Attributes.dll",
-                    "MakeItMeta.Tests.dll"
-                ],
-                "attributes": 
-                [
-                    {
-                        "name": "MakeItMeta.Tests.TestAttribute"
-                    }
-                ]
-            }
-            """
-        },
-        new[]
-        {
             "AttributeWithoutTypesButWithAll",
             """
             {
@@ -65,8 +45,7 @@ public class InjectionCommandTests
                 "attributes": 
                 [
                     {
-                        "name": "MakeItMeta.Tests.TestAttribute",
-                        "all": true
+                        "name": "MakeItMeta.Tests.TestAttribute"
                     }
                 ]
             }
@@ -87,7 +66,7 @@ public class InjectionCommandTests
                 [
                     {
                         "name": "MakeItMeta.Tests.TestAttribute",
-                        "types": [
+                        "add": [
                             {
                             }
                         ]
@@ -155,8 +134,53 @@ public class InjectionCommandTests
                 }            
                 """;
 
-        await Execute(attribute, ("public object? Execute()", "[TestAppMeta]public object? Execute()"), config);
+        await Execute(attribute, config, ("public object? Execute()", "[TestAppMeta]public object? Execute()"));
+    }
+    
+    [Fact]
+    public async Task CanIgnoreTypeFromInjection()
+    {
+        var config = """
+            {
+                "targetAssemblies": [],
+                "attributes": 
+                [
+                    {
+                        "name": "TestAppMetaAttribute",
+                        "ignore":
+                        [
+                            {
+                                "name": "MakeItMeta.TestApp.Log",
+                                "methods": [
+                                    "Write"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
 
+        var attribute = """
+                using MakeItMeta.Attributes;
+                using MakeItMeta.Tests;
+                
+                public class TestAppMetaAttribute : MetaAttribute
+                {
+                    public static TestAttribute.Entry? OnEntry(object? @this, string assemblyFullName, string methodName, object?[]? parameters)
+                    {   
+                       MakeItMeta.TestApp.Log.Write();
+                       return TestAttribute.OnEntry(@this, assemblyFullName, methodName, parameters);
+                    }
+
+                    public static void OnExit(object? @this, string assemblyFullName, string methodName, TestAttribute.Entry? entry)
+                    {
+                       TestAttribute.OnExit(@this, assemblyFullName, methodName, entry);
+                    }
+                }            
+                """;
+
+        await Execute(attribute, config);
     }
 
     [Fact]
@@ -168,8 +192,7 @@ public class InjectionCommandTests
                 "attributes": 
                 [
                     {
-                        "name": "TestAppMetaAttribute",
-                        "all": true
+                        "name": "TestAppMetaAttribute"
                     }
                 ]
             }
@@ -193,10 +216,10 @@ public class InjectionCommandTests
                 }            
                 """;
 
-        await Execute(attribute, default, config);
+        await Execute(attribute, config);
     }
 
-    private static async Task Execute(string newFile, (string, string) places, string config)
+    private static async Task Execute(string newFile, string config, (string, string) places = default)
     {
         var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll");
         var metaATestsReference = MetadataReference.CreateFromFile("MakeItMeta.Tests.dll");
