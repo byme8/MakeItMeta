@@ -161,7 +161,20 @@ public class MetaMaker
                     method.Body.Variables.Add(onEnterReturnVariable);
                 }
 
-                il.InsertBefore(firstInstruction, method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull));
+                if(method.HasThis)
+                {
+                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
+                    if (method.DeclaringType.IsValueType)
+                    {
+                        il.InsertBefore(firstInstruction,il.Create(OpCodes.Ldobj, method.DeclaringType));
+                        il.InsertBefore(firstInstruction,il.Create(OpCodes.Box, method.DeclaringType));
+                    }
+                }
+                else
+                {
+                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldnull));
+                }
+
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, targetModuleName));
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
 
@@ -183,8 +196,19 @@ public class MetaMaker
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Stloc, onEnterReturnVariable));
                 }
 
-                var onExitInstruction = method.HasThis ? il.Create(OpCodes.Ldarg_0) : il.Create(OpCodes.Ldnull);
-                il.InsertBefore(lastInstruction, onExitInstruction);
+                if(method.HasThis)
+                {
+                    il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldarg_0));
+                    if (method.DeclaringType.IsValueType)
+                    {
+                        il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldobj, method.DeclaringType));
+                        il.InsertBefore(lastInstruction, il.Create(OpCodes.Box, method.DeclaringType));
+                    }
+                }
+                else
+                {
+                    il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldnull));
+                }
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, targetModuleName));
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
 

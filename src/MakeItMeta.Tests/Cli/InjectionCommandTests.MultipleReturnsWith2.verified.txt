@@ -1,0 +1,26 @@
+﻿{
+  calls: [
+    {
+      Id: Guid_1,
+      Message: OnEnter: MakeItMeta.TestApp.Program.Execute
+    },
+    {
+      Id: Guid_2,
+      Message: OnEnter: MultiplrReturns.DoIt
+    },
+    {
+      Id: Guid_2,
+      Message: OnExit: MultiplrReturns.DoIt
+    },
+    {
+      Id: Guid_1,
+      Message: OnExit: MakeItMeta.TestApp.Program.Execute
+    }
+  ],
+  outputString:
+Config is validated
+Modified: {tempTargetAssemblyFile}
+Done!
+,
+  errorString: 
+}
