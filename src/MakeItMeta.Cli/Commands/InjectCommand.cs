@@ -74,8 +74,13 @@ public class InjectCommand : ICommand
 
         var injectionConfig = new InjectionConfig(additionalAssemblies, attributes);
 
+        var searchFolders = inputConfig.TargetAssemblies!
+            .Select(o => Path.GetDirectoryName(o)!)
+            .Distinct()
+            .ToArray();
+
         var maker = new MetaMaker();
-        var (resultAssemblies, metaMakingError) = maker.MakeItMeta(targetAssemblies, injectionConfig).Unwrap();
+        var (resultAssemblies, metaMakingError) = maker.MakeItMeta(targetAssemblies, injectionConfig, searchFolders).Unwrap();
         if (metaMakingError)
         {
             await console.Error.WriteLineAsync(metaMakingError.Errors.First().Message);

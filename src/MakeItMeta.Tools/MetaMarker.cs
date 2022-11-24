@@ -7,10 +7,12 @@ namespace MakeItMeta.Tools;
 
 public class MetaMaker
 {
-    public Result<IReadOnlyList<MemoryStream>> MakeItMeta(Stream[] targetAssemblies, InjectionConfig? injectionConfig = null)
+    public Result<IReadOnlyList<MemoryStream>> MakeItMeta(Stream[] targetAssemblies, InjectionConfig? injectionConfig = null, string[]? searchFolders = null)
     {
+        var readParameters = PrepareReadParameters(searchFolders);
+
         var targetModules = targetAssemblies
-            .Select(ModuleDefinition.ReadModule)
+            .Select(o => ModuleDefinition.ReadModule(o, readParameters))
             .ToArray();
 
         var injectableModules = injectionConfig?
@@ -24,8 +26,6 @@ public class MetaMaker
             var allModules = new List<ModuleDefinition>();
             allModules.Add(targetModule);
             allModules.AddRange(injectableModules);
-
-           //
 
             var targetTypes = targetModule.Types.ToArray();
             var allTypes = allModules
@@ -54,6 +54,24 @@ public class MetaMaker
         }
 
         return resultAssemblies;
+    }
+
+    private ReaderParameters PrepareReadParameters(string[]? searchFolders)
+    {
+        var resolver = new Mono.Cecil.DefaultAssemblyResolver();
+        if (searchFolders is not null)
+        {
+            foreach (var folder in searchFolders)
+            {
+                resolver.AddSearchDirectory(folder);
+            }
+        }
+        var readParameters = new ReaderParameters
+        {
+            AssemblyResolver = resolver
+        };
+        
+        return readParameters;
     }
 
     private Result InjectInterceptorBaseOnAttributes(TypeDefinition[] allTypes, ModuleDefinition targetModule)
