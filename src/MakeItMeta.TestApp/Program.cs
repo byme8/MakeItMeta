@@ -13,7 +13,7 @@ public static class Program
     }
 }
 
-public class Executor
+public class Executor : IExecutor
 {
     public object? Execute()
     {
@@ -23,7 +23,7 @@ public class Executor
 
 public class Provider
 {
-    public Executor Provide()
+    public IExecutor Provide()
     {
         return new Executor();
     }
@@ -35,4 +35,9 @@ public class Log
     {
         Console.WriteLine("log"); 
     }
+}
+
+public interface IExecutor
+{
+    object? Execute();
 }

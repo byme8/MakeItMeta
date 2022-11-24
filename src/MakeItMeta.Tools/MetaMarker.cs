@@ -288,6 +288,7 @@ public class MetaMaker
             .ToDictionary(o => o.FullName);
 
         var allMethods = targetModule.Types
+            .Where(o => !o.IsInterface)
             .Where(o => !o.FullName.Contains('<'))
             .Where(o => !o.FullName.StartsWith("System."))
             .Where(o => !o.FullName.StartsWith("Microsoft."))
