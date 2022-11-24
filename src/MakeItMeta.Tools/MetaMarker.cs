@@ -107,11 +107,11 @@ public class MetaMaker
                 var attributeType = metaAttribute.AttributeType.Resolve();
                 var onEntryMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnEntry"));
                 var onExitMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnExit"));
-                var onEntryReturnType = method.Module.ImportReference(onEntryMethod.ReturnType.Resolve());
+                var onEntryReturnType = method.Module.ImportReference(onEntryMethod.ReturnType);
                 var onEnterVoidReturn = onEntryReturnType.FullName == "System.Void";
                 if (!onEnterVoidReturn)
                 {
-                    var onExitAcceptType = method.Module.ImportReference(onExitMethod.Parameters.Last().ParameterType.Resolve());
+                    var onExitAcceptType = method.Module.ImportReference(onExitMethod.Parameters.Last().ParameterType);
                     if (onEntryReturnType.FullName != onExitAcceptType.FullName)
                     {
                         return new Error(
