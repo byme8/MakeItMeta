@@ -30,6 +30,24 @@ public class InjectionCommandTests
                 }            
                 """;
 
+                public const string Config = 
+                """
+                {
+                    "targetAssemblies": [],
+                    "additionalAssemblies": 
+                    [
+                        "MakeItMeta.Attributes.dll",
+                        "MakeItMeta.TestAttributes.dll"
+                    ],
+                    "attributes": 
+                    [
+                        {
+                            "name": "MakeItMeta.TestAttributes.TestAttribute",
+                        }
+                    ]
+                }
+                """;
+
     public static IEnumerable<object[]> BrokenConfigs = new[]
     {
         new[] { "EmptyConfig", "" },
@@ -198,6 +216,109 @@ public class InjectionCommandTests
             """;
 
         await Execute(string.Empty, config);
+    }
+
+    [Fact]
+    public async Task OverrideAndVirtual()
+    {
+        var newFile = """
+            public class ExecutorVirtual
+            {
+                public virtual object? Execute()
+                {
+                    return null; // place to replace
+                }
+            }
+
+            public class ExecutorOverride : ExecutorVirtual
+            {
+                public override object? Execute()
+                {
+                    return null; // place to replace
+                }
+            }
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = """
+                    new ExecutorVirtual().Execute();
+                    return new ExecutorOverride().Execute();
+        """;
+
+        await Execute(newFile, Config, (replace, main));
+    }
+
+    [Fact]
+    public async Task MultipleReturnsWith1()
+    {
+        var newFile = """ 
+            public struct MultiplrReturns 
+            {
+                public int DoIt(int value)
+                {
+                    var result = 0;
+                    if(value == 2)
+                    {
+                        result = 20;
+                        return result;
+                    }
+
+                    return result + value;
+                }
+            }
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = $"return new MultiplrReturns().DoIt(1);";
+
+        await Execute(newFile, Config, (replace, main));
+    }
+
+    [Fact]
+    public async Task MultipleReturnsWith2()
+    {
+        var newFile = """ 
+            public struct MultiplrReturns 
+            {
+                public int DoIt(int value)
+                {
+                    var result = 0;
+                    if(value == 2)
+                    {
+                        result = 20;
+                        return result;
+                    }
+
+                    return result + value;
+                }
+            }
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = $"return new MultiplrReturns().DoIt(2);";
+
+        await Execute(newFile, Config, (replace, main));
+    }
+
+    [Fact]
+    public async Task ToUInt32()
+    {
+        var newFile = """
+            public struct Color 
+            {
+                public int R { get; set; }
+                public int G { get; set; }
+                public int B { get; set; }
+                public int A { get; set; }
+
+                public uint ToUint32()
+                {
+                    return ((uint)A << 24) | ((uint)R << 16) | ((uint)G << 8) | (uint)B;
+                }
+            }
+
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = "return new Color().ToUint32();";
+
+        await Execute(newFile, Config, (replace, main));
     }
 
     [Fact]

@@ -101,7 +101,9 @@ public class MetaMaker
                     o => o.IsOut || o.ParameterType.IsByReference))
             {
                 var message = $"At the moment method '{fullMethodName}' is not supported. It has generics or by references parameters";
-                return new Error("METHOD_IS_NOT_SUPPORTED", message);
+                System.Console.WriteLine(message);
+                continue;
+                // return new Error("METHOD_IS_NOT_SUPPORTED", message);
             }
 
             var typeMetaAttributes = method.DeclaringType.CustomAttributes
@@ -294,6 +296,10 @@ public class MetaMaker
             .Where(o => !o.FullName.StartsWith("Microsoft."))
             .Where(o => !metaAttributes.ContainsKey(o.FullName))
             .SelectMany(o => o.Methods)
+            .Where(o => !o.FullName.Contains("get_"))
+            .Where(o => !o.FullName.Contains("set_"))
+            .Where(o => !o.FullName.Contains("["))
+            .Where(o => !o.IsGenericInstance)
             .ToArray();
 
         var allMethodsByType = allMethods
