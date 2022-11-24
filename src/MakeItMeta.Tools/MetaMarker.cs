@@ -25,20 +25,23 @@ public class MetaMaker
             allModules.Add(targetModule);
             allModules.AddRange(injectableModules);
 
-            var types = allModules
+           //
+
+            var targetTypes = targetModule.Types.ToArray();
+            var allTypes = allModules
                 .SelectMany(o => o.Types)
                 .ToArray();
 
             if (injectionConfig is not null)
             {
-                var injectAttributeError = InjectAttributes(types, injectionConfig).Unwrap();
+                var injectAttributeError = InjectAttributes(targetModule, allTypes, injectionConfig).Unwrap();
                 if (injectAttributeError)
                 {
                     return injectAttributeError;
                 }
             }
 
-            var injectionError = InjectInterceptorBaseOnAttributes(types, targetModule).Unwrap();
+            var injectionError = InjectInterceptorBaseOnAttributes(allTypes, targetModule).Unwrap();
             if (injectionError)
             {
                 return injectionError;
@@ -53,9 +56,9 @@ public class MetaMaker
         return resultAssemblies;
     }
 
-    private Result InjectInterceptorBaseOnAttributes(TypeDefinition[] types, ModuleDefinition targetModule)
+    private Result InjectInterceptorBaseOnAttributes(TypeDefinition[] allTypes, ModuleDefinition targetModule)
     {
-        var methodsWithMetaAttributes = types
+        var methodsWithMetaAttributes = targetModule.Types
             .SelectMany(o => o.Methods)
             .Where(o => o.HasBody && !o.IsConstructor)
             .Where(MethodThatHasMetaAttributeOrContainingTypeHasMetaAttribute)
@@ -247,11 +250,11 @@ public class MetaMaker
     }
 
     private static bool MethodThatHasMetaAttributeOrContainingTypeHasMetaAttribute(MethodDefinition method)
-        => method.CustomAttributes.Any(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute") ||
+        => method.CustomAttributes.Any(a => method.Module.ImportReference(a.AttributeType).Resolve().BaseType.Name == "MetaAttribute") ||
            method.DeclaringType.CustomAttributes.Any(
-               a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute");
+               a => method.Module.ImportReference(a.AttributeType).Resolve().BaseType.Name == "MetaAttribute");
 
-    private Result InjectAttributes(TypeDefinition[] types, InjectionConfig injectionConfig)
+    private Result InjectAttributes(ModuleDefinition targetModule, TypeDefinition[] allTypes, InjectionConfig injectionConfig)
     {
         if (injectionConfig.Entries is null)
         {
@@ -262,11 +265,11 @@ public class MetaMaker
             .Select(o => o.Attribute)
             .ToHashSet();
 
-        var metaAttributes = types
+        var metaAttributes = allTypes
             .Where(o => attributesSet.Contains(o.FullName))
             .ToDictionary(o => o.FullName);
 
-        var allMethods = types
+        var allMethods = targetModule.Types
             .Where(o => !o.FullName.Contains('<'))
             .Where(o => !o.FullName.StartsWith("System."))
             .Where(o => !o.FullName.StartsWith("Microsoft."))

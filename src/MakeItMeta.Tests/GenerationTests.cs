@@ -4,6 +4,7 @@ using MakeItMeta.Tools;
 using MakeItMeta.Tools.Results;
 using MakeItMeta.Tests.Core;
 using MakeItMeta.Tests.Data;
+using MakeItMeta.TestAttributes;
 
 namespace MakeItMeta.Tests;
 
@@ -13,11 +14,11 @@ public class GenerationTests
     public static Stream[] AdditionalAssemblies()
     {
         var coreAssembly = File.OpenRead("MakeItMeta.Attributes.dll");
-        var thisAssembly = File.OpenRead(typeof(GenerationTests).Assembly.Location);
+        var testAttributesAssembly = File.OpenRead("MakeItMeta.TestAttributes.dll");
         return new Stream[]
         {
             coreAssembly,
-            thisAssembly
+            testAttributesAssembly
         };
     }
 
@@ -31,7 +32,7 @@ public class GenerationTests
                 new[]
                 {
                     new InjectionEntry(
-                        "MakeItMeta.Tests.TestAttribute",
+                        "MakeItMeta.TestAttributes.TestAttribute",
                         new[]
                         {
                             new InjectionTypeEntry(
@@ -48,7 +49,7 @@ public class GenerationTests
                 new[]
                 {
                     new InjectionEntry(
-                        "MakeItMeta.Tests.TestAttribute",
+                        "MakeItMeta.TestAttributes.TestAttribute",
                         new[]
                         {
                             new InjectionTypeEntry(
@@ -56,7 +57,7 @@ public class GenerationTests
                                 new[] { "Execute" })
                         }),
                     new InjectionEntry(
-                        "MakeItMeta.Tests.TestAttribute",
+                        "MakeItMeta.TestAttributes.TestAttribute",
                         new[]
                         {
                             new InjectionTypeEntry(
@@ -91,7 +92,7 @@ public class GenerationTests
                 AdditionalAssemblies(),
                 new[]
                 {
-                    new InjectionEntry("MakeItMeta.Tests.TestAttribute",
+                    new InjectionEntry("MakeItMeta.TestAttributes.TestAttribute",
                         new[]
                         {
                             new InjectionTypeEntry(
@@ -109,7 +110,7 @@ public class GenerationTests
                 new[]
                 {
                     new InjectionEntry(
-                        "MakeItMeta.Tests.TestAttribute",
+                        "MakeItMeta.TestAttributes.TestAttribute",
                         new[]
                         {
                             new InjectionTypeEntry(
@@ -153,7 +154,7 @@ public class GenerationTests
             new[]
             {
                 new InjectionEntry(
-                    "MakeItMeta.Tests.TestAttribute",
+                    "MakeItMeta.TestAttributes.TestAttribute",
                     new[]
                     {
                         new InjectionTypeEntry(
@@ -187,7 +188,7 @@ public class GenerationTests
             AdditionalAssemblies(),
             new[]
             {
-                new InjectionEntry("MakeItMeta.Tests.TestAttribute", null, null)
+                new InjectionEntry("MakeItMeta.TestAttributes.TestAttribute", null, null)
             });
 
         var testAssembly = await TestProject.Project.CompileToRealAssemblyAsBytes();

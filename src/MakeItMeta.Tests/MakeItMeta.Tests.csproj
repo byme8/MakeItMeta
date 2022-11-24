@@ -24,6 +24,7 @@
     <ItemGroup>
       <ProjectReference Include="..\MakeItMeta.Cli\MakeItMeta.Cli.csproj" />
       <ProjectReference Include="..\MakeItMeta.Tools\MakeItMeta.Tools.csproj" />
+      <ProjectReference Include="..\MakeItMeta.TestAttributes\MakeItMeta.TestAttributes.csproj" />
     </ItemGroup>
 
 </Project>
