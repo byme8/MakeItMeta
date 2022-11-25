@@ -18,6 +18,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{3EC0F34B
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MakeItMeta.TestApp", "src\MakeItMeta.TestApp\MakeItMeta.TestApp.csproj", "{A44F045C-0094-411C-B2BE-AE7CD8201399}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MakeItMeta.TestAttributes", "src\MakeItMeta.TestAttributes\MakeItMeta.TestAttributes.csproj", "{A69D7011-2834-49BA-ACF1-C0A508664D9F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,6 +50,10 @@ Global
 		{A44F045C-0094-411C-B2BE-AE7CD8201399}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A44F045C-0094-411C-B2BE-AE7CD8201399}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A44F045C-0094-411C-B2BE-AE7CD8201399}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A69D7011-2834-49BA-ACF1-C0A508664D9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A69D7011-2834-49BA-ACF1-C0A508664D9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A69D7011-2834-49BA-ACF1-C0A508664D9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A69D7011-2834-49BA-ACF1-C0A508664D9F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{AB435CCA-D0FB-4B87-8A6E-C9EC72AFD86F} = {85D3DC5D-77FB-4E5C-94B8-5685253376DA}
