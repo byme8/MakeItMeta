@@ -322,6 +322,38 @@ public class InjectionCommandTests
     }
 
     [Fact]
+    public async Task Generics()
+    {
+        var newFile = """
+            public class Container<TValue>
+            {
+                public TValue Get()
+                {
+                    return default;
+                }
+
+                public TAsValue GetAs<TAsValue>()
+                {
+                    return default;
+                }
+
+                public TValue Execute()
+                {
+                    GetAs<string>();
+                    return Get();
+                }
+            }
+
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = """
+            return new Container<int>().Execute();
+            """;
+
+        await Execute(newFile, Config, (replace, main));
+    }
+
+    [Fact]
     public async Task MetaAttributesAreIgnored()
     {
         var config = """
@@ -376,7 +408,7 @@ public class InjectionCommandTests
         var modifiesAssemblyBytes = await File.ReadAllBytesAsync(tempTargetAssemblyFile);
         var modifiedAssembly = Assembly.Load(modifiesAssemblyBytes);
 
-        _ = modifiedAssembly.Execute();
+        var result = modifiedAssembly.Execute();
 
         var modifiedAssemblyFullName = modifiedAssembly.FullName!;
         var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(modifiedAssemblyFullName);
@@ -385,6 +417,7 @@ public class InjectionCommandTests
 
         await Verify(new
         {
+            result,
             calls,
             outputString,
             errorString
