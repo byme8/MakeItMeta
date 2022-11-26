@@ -1,5 +1,5 @@
 ﻿{
-  result: 0,
+  result: true,
   calls: [
     {
       Id: Guid_1,
@@ -7,11 +7,11 @@
     },
     {
       Id: Guid_2,
-      Message: OnEnter: Color.ToUint32
+      Message: OnEnter: Optional`1.get_HasValue
     },
     {
       Id: Guid_2,
-      Message: OnExit: Color.ToUint32
+      Message: OnExit: Optional`1.get_HasValue
     },
     {
       Id: Guid_1,

@@ -7,11 +7,10 @@ using MakeItMeta.Tests.Data;
 using Microsoft.CodeAnalysis;
 namespace MakeItMeta.Tests.Cli;
 
-[UsesVerify]
-public class InjectionCommandTests
+public class InjectionTest
 {
     public const string Attribute =
-                """
+        """
                 using MakeItMeta.Attributes;
                 using MakeItMeta.TestAttributes;
 
@@ -30,8 +29,8 @@ public class InjectionCommandTests
                 }            
                 """;
 
-                public const string Config = 
-                """
+    public const string Config = 
+        """
                 {
                     "targetAssemblies": [],
                     "additionalAssemblies": 
@@ -47,7 +46,84 @@ public class InjectionCommandTests
                     ]
                 }
                 """;
+    
+    public static async Task Execute(string newFile, string config, (string, string) places = default)
+    {
+        var tempTargetAssemblyFile = await PrepareTestAssemblyFile(newFile, places);
 
+        config = config.Replace(@"""targetAssemblies"": []", @$"""targetAssemblies"": [""{tempTargetAssemblyFile}""]");
+        var tempConfigFile = Path.GetTempFileName();
+        await File.WriteAllTextAsync(tempConfigFile, config);
+
+        var console = new FakeInMemoryConsole();
+
+        var command = new InjectCommand();
+        command.Config = tempConfigFile;
+
+        await command.ExecuteAsync(console);
+
+        var modifiedAssembly = await LoadAssembly(tempTargetAssemblyFile);
+
+        var result = modifiedAssembly.Execute();
+
+        var modifiedAssemblyFullName = modifiedAssembly.FullName!;
+        var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(modifiedAssemblyFullName);
+        var outputString = console.ReadOutputString();
+        var errorString = console.ReadErrorString();
+
+        await Verify(new
+        {
+            result,
+            calls,
+            outputString,
+            errorString
+        })
+            .Track(tempTargetAssemblyFile)
+            .Track(tempConfigFile);
+    }
+
+    public static async Task<Assembly> LoadAssembly(string tempTargetAssemblyFile)
+    {
+
+        var modifiesAssemblyBytes = await File.ReadAllBytesAsync(tempTargetAssemblyFile);
+        var modifiedAssembly = Assembly.Load(modifiesAssemblyBytes);
+        return modifiedAssembly;
+    }
+
+    public static async Task<string> PrepareTestAssemblyFile(string? additionalFile = null, (string, string) places = default)
+    {
+        var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll");
+        var testAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.TestAttributes.dll");
+        var project = TestProject.Project;
+
+        if (!string.IsNullOrEmpty(additionalFile))
+        {
+            project = project.AddDocument("AdditionalFile.cs", additionalFile)
+                .Project;
+        }
+
+        if (!string.IsNullOrEmpty(additionalFile))
+        {
+            project = project
+                .AddMetadataReference(testAttributesReference)
+                .AddMetadataReference(metaAttributesReference);
+        }
+
+        if (places != default)
+        {
+            project = await project.ReplacePartOfDocumentAsync("Program.cs", places);
+        }
+
+        var testAssembly = await project.CompileToRealAssemblyAsBytes();
+        var tempTargetAssemblyFile = Path.GetTempFileName();
+        await File.WriteAllBytesAsync(tempTargetAssemblyFile, testAssembly);
+        return tempTargetAssemblyFile;
+    }
+}
+
+[UsesVerify]
+public class InjectionCommandTests : InjectionTest
+{
     public static IEnumerable<object[]> BrokenConfigs = new[]
     {
         new[] { "EmptyConfig", "" },
@@ -217,142 +293,7 @@ public class InjectionCommandTests
 
         await Execute(string.Empty, config);
     }
-
-    [Fact]
-    public async Task OverrideAndVirtual()
-    {
-        var newFile = """
-            public class ExecutorVirtual
-            {
-                public virtual object? Execute()
-                {
-                    return null; // place to replace
-                }
-            }
-
-            public class ExecutorOverride : ExecutorVirtual
-            {
-                public override object? Execute()
-                {
-                    return null; // place to replace
-                }
-            }
-            """;
-        var replace = "return new Provider().Provide().Execute(); // place to replace";
-        var main = """
-                    new ExecutorVirtual().Execute();
-                    return new ExecutorOverride().Execute();
-        """;
-
-        await Execute(newFile, Config, (replace, main));
-    }
-
-    [Fact]
-    public async Task MultipleReturnsWith1()
-    {
-        var newFile = """ 
-            public struct MultiplrReturns 
-            {
-                public int DoIt(int value)
-                {
-                    var result = 0;
-                    if(value == 2)
-                    {
-                        result = 20;
-                        return result;
-                    }
-
-                    return result + value;
-                }
-            }
-            """;
-        var replace = "return new Provider().Provide().Execute(); // place to replace";
-        var main = $"return new MultiplrReturns().DoIt(1);";
-
-        await Execute(newFile, Config, (replace, main));
-    }
-
-    [Fact]
-    public async Task MultipleReturnsWith2()
-    {
-        var newFile = """ 
-            public struct MultiplrReturns 
-            {
-                public int DoIt(int value)
-                {
-                    var result = 0;
-                    if(value == 2)
-                    {
-                        result = 20;
-                        return result;
-                    }
-
-                    return result + value;
-                }
-            }
-            """;
-        var replace = "return new Provider().Provide().Execute(); // place to replace";
-        var main = $"return new MultiplrReturns().DoIt(2);";
-
-        await Execute(newFile, Config, (replace, main));
-    }
-
-    [Fact]
-    public async Task ToUInt32()
-    {
-        var newFile = """
-            public struct Color 
-            {
-                public int R { get; set; }
-                public int G { get; set; }
-                public int B { get; set; }
-                public int A { get; set; }
-
-                public uint ToUint32()
-                {
-                    return ((uint)A << 24) | ((uint)R << 16) | ((uint)G << 8) | (uint)B;
-                }
-            }
-
-            """;
-        var replace = "return new Provider().Provide().Execute(); // place to replace";
-        var main = "return new Color().ToUint32();";
-
-        await Execute(newFile, Config, (replace, main));
-    }
-
-    [Fact]
-    public async Task Generics()
-    {
-        var newFile = """
-            public class Container<TValue>
-            {
-                public TValue Get()
-                {
-                    return default;
-                }
-
-                public TAsValue GetAs<TAsValue>()
-                {
-                    return default;
-                }
-
-                public TValue Execute()
-                {
-                    GetAs<string>();
-                    return Get();
-                }
-            }
-
-            """;
-        var replace = "return new Provider().Provide().Execute(); // place to replace";
-        var main = """
-            return new Container<int>().Execute();
-            """;
-
-        await Execute(newFile, Config, (replace, main));
-    }
-
+    
     [Fact]
     public async Task MetaAttributesAreIgnored()
     {
@@ -445,78 +386,5 @@ public class InjectionCommandTests
             .Track(firstAssemblyFile)
             .Track(secondAssemblyFile)
             .Track(configFile);
-    }
-
-    private static async Task Execute(string newFile, string config, (string, string) places = default)
-    {
-        var tempTargetAssemblyFile = await PrepareTestAssemblyFile(newFile, places);
-
-        config = config.Replace(@"""targetAssemblies"": []", @$"""targetAssemblies"": [""{tempTargetAssemblyFile}""]");
-        var tempConfigFile = Path.GetTempFileName();
-        await File.WriteAllTextAsync(tempConfigFile, config);
-
-        var console = new FakeInMemoryConsole();
-
-        var command = new InjectCommand();
-        command.Config = tempConfigFile;
-
-        await command.ExecuteAsync(console);
-
-        var modifiedAssembly = await LoadAssembly(tempTargetAssemblyFile);
-
-        var result = modifiedAssembly.Execute();
-
-        var modifiedAssemblyFullName = modifiedAssembly.FullName!;
-        var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(modifiedAssemblyFullName);
-        var outputString = console.ReadOutputString();
-        var errorString = console.ReadErrorString();
-
-        await Verify(new
-        {
-            result,
-            calls,
-            outputString,
-            errorString
-        })
-            .Track(tempTargetAssemblyFile)
-            .Track(tempConfigFile);
-    }
-
-    private static async Task<Assembly> LoadAssembly(string tempTargetAssemblyFile)
-    {
-
-        var modifiesAssemblyBytes = await File.ReadAllBytesAsync(tempTargetAssemblyFile);
-        var modifiedAssembly = Assembly.Load(modifiesAssemblyBytes);
-        return modifiedAssembly;
-    }
-
-    private static async Task<string> PrepareTestAssemblyFile(string? additionalFile = null, (string, string) places = default)
-    {
-        var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll");
-        var testAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.TestAttributes.dll");
-        var project = TestProject.Project;
-
-        if (!string.IsNullOrEmpty(additionalFile))
-        {
-            project = project.AddDocument("AdditionalFile.cs", additionalFile)
-                .Project;
-        }
-
-        if (!string.IsNullOrEmpty(additionalFile))
-        {
-            project = project
-                .AddMetadataReference(testAttributesReference)
-                .AddMetadataReference(metaAttributesReference);
-        }
-
-        if (places != default)
-        {
-            project = await project.ReplacePartOfDocumentAsync("Program.cs", places);
-        }
-
-        var testAssembly = await project.CompileToRealAssemblyAsBytes();
-        var tempTargetAssemblyFile = Path.GetTempFileName();
-        await File.WriteAllBytesAsync(tempTargetAssemblyFile, testAssembly);
-        return tempTargetAssemblyFile;
     }
 }

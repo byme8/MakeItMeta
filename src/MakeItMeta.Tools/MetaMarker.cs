@@ -27,7 +27,7 @@ public class MetaMaker
             .SelectMany(o => o.Types)
             .ToArray();
 
-        var validationError = MetaConfigValidator.Validate(allTypes, injectionConfig).Unwrap();
+        var validationError = MetaValidator.ValidateConfig(allTypes, injectionConfig).Unwrap();
         if (validationError)
         {
             return validationError;
@@ -123,7 +123,7 @@ public class MetaMaker
                 .DistinctBy(o => o.AttributeType.Name)
                 .ToArray();
 
-            var attributeValidationError = ValidateAttributes(metaAttributes).Unwrap();
+            var attributeValidationError = MetaValidator.ValidateAttributes(metaAttributes).Unwrap();
             if (attributeValidationError)
             {
                 return attributeValidationError;
@@ -165,13 +165,21 @@ public class MetaMaker
                     method.Body.Variables.Add(onEnterReturnVariable);
                 }
 
+                TypeReference declaringType = method.DeclaringType;
+                if (declaringType.GenericParameters.Any())
+                {
+                    var genericsArguments = declaringType.GenericParameters.OfType<TypeReference>().ToArray();
+                    declaringType = declaringType
+                        .MakeGenericInstanceType(genericsArguments);
+                }
                 if (method.HasThis)
                 {
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
-                    if (method.DeclaringType.IsValueType)
+                    
+                    if (declaringType.IsValueType)
                     {
-                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldobj, method.DeclaringType));
-                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, method.DeclaringType));
+                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldobj, declaringType));
+                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, declaringType));
                     }
                 }
                 else
@@ -203,10 +211,10 @@ public class MetaMaker
                 if (method.HasThis)
                 {
                     il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldarg_0));
-                    if (method.DeclaringType.IsValueType)
+                    if (declaringType.IsValueType)
                     {
-                        il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldobj, method.DeclaringType));
-                        il.InsertBefore(lastInstruction, il.Create(OpCodes.Box, method.DeclaringType));
+                        il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldobj, declaringType));
+                        il.InsertBefore(lastInstruction, il.Create(OpCodes.Box, declaringType));
                     }
                 }
                 else
@@ -224,73 +232,6 @@ public class MetaMaker
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Call, onExitMethod));
 
                 ReplaceJumps(method.Body);
-            }
-        }
-
-        return Result.Success();
-    }
-
-    private Result ValidateAttributes(CustomAttribute[] metaAttributes)
-    {
-        foreach (var metaAttribute in metaAttributes)
-        {
-            var onEntry = metaAttribute.AttributeType.Resolve()
-                .GetMethods()
-                .First(o => o.Name == "OnEntry");
-
-            var onExit = metaAttribute.AttributeType.Resolve()
-                .GetMethods()
-                .First(o => o.Name == "OnExit");
-
-            var parameters = new[]
-            {
-                (Name: "this", Type: "System.Object"),
-                (Name: "assemblyFullName", Type: "System.String"),
-                (Name: "methodName", Type: "System.String"),
-            };
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                var onEntryArgument = parameters[i];
-                if (onEntry.Parameters[i].Name != onEntryArgument.Name ||
-                    onEntry.Parameters[i].ParameterType.FullName != onEntryArgument.Type)
-                {
-                    return new Error(
-                        "INVALID_META_ATTRIBUTE",
-                        $"[{metaAttribute.AttributeType.FullName}] The OnEntry '{i}' parameter has to be '{onEntryArgument.Type} {onEntryArgument.Name}'");
-                }
-            }
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                var onExitParameter = parameters[i];
-                if (onExit.Parameters[i].Name != onExitParameter.Name ||
-                    onExit.Parameters[i].ParameterType.FullName != onExitParameter.Type)
-                {
-                    return new Error(
-                        "INVALID_META_ATTRIBUTE",
-                        $"[{metaAttribute.AttributeType.FullName}] The OnExit '{i}' parameter has to be '{onExitParameter.Type} {onExitParameter.Name}'");
-                }
-            }
-
-            if (onEntry.ReturnType.FullName != "System.Void")
-            {
-                if (onExit.Parameters.Count != 4)
-                {
-                    return new Error(
-                        "INVALID_META_ATTRIBUTE",
-                        $"[{metaAttribute.AttributeType.FullName}] The OnEnter returns '{onEntry.ReturnType.FullName}'. The OnExit has to accept is as last parameter.");
-
-                }
-
-                var last = onExit.Parameters.Last();
-                if (last.ParameterType.FullName != onEntry.ReturnType.FullName)
-                {
-                    return new Error(
-                        "INVALID_META_ATTRIBUTE",
-                        $"[{metaAttribute.AttributeType.FullName}] The OnEnter returns '{onEntry.ReturnType.FullName}'. The OnExit has to accept is as last parameter.");
-
-                }
             }
         }
 
@@ -319,15 +260,10 @@ public class MetaMaker
 
         var allMethods = targetModule.Types
             .Where(o => !o.IsInterface)
-            .Where(o => !o.FullName.Contains('<'))
             .Where(o => !o.FullName.StartsWith("System."))
             .Where(o => !o.FullName.StartsWith("Microsoft."))
             .Where(o => !metaAttributes.ContainsKey(o.FullName))
             .SelectMany(o => o.Methods)
-            .Where(o => !o.FullName.Contains("get_"))
-            .Where(o => !o.FullName.Contains("set_"))
-            .Where(o => !o.FullName.Contains("["))
-            .Where(o => !o.IsGenericInstance)
             .ToArray();
 
         var allMethodsByType = allMethods

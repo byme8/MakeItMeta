@@ -1,0 +1,59 @@
+﻿{
+  result: 0,
+  calls: [
+    {
+      Id: Guid_1,
+      Message: OnEnter: MakeItMeta.TestApp.Program.Execute
+    },
+    {
+      Id: Guid_2,
+      Message: OnEnter: Color.ToUint32
+    },
+    {
+      Id: Guid_3,
+      Message: OnEnter: Color.get_A
+    },
+    {
+      Id: Guid_3,
+      Message: OnExit: Color.get_A
+    },
+    {
+      Id: Guid_4,
+      Message: OnEnter: Color.get_R
+    },
+    {
+      Id: Guid_4,
+      Message: OnExit: Color.get_R
+    },
+    {
+      Id: Guid_5,
+      Message: OnEnter: Color.get_G
+    },
+    {
+      Id: Guid_5,
+      Message: OnExit: Color.get_G
+    },
+    {
+      Id: Guid_6,
+      Message: OnEnter: Color.get_B
+    },
+    {
+      Id: Guid_6,
+      Message: OnExit: Color.get_B
+    },
+    {
+      Id: Guid_2,
+      Message: OnExit: Color.ToUint32
+    },
+    {
+      Id: Guid_1,
+      Message: OnExit: MakeItMeta.TestApp.Program.Execute
+    }
+  ],
+  outputString:
+Config is validated
+Modified: {tempTargetAssemblyFile}
+Done!
+,
+  errorString: 
+}
