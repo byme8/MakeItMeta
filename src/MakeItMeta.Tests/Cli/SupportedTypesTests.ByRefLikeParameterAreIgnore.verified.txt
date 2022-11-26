@@ -1,0 +1,35 @@
+﻿{
+  result: true,
+  calls: [
+    {
+      Id: Guid_1,
+      Message: OnEnter: MakeItMeta.TestApp.Program.Execute
+    },
+    {
+      Id: Guid_2,
+      Message: OnEnter: Container.Execute
+    },
+    {
+      Id: Guid_3,
+      Message: OnEnter: Container.TryGet
+    },
+    {
+      Id: Guid_3,
+      Message: OnExit: Container.TryGet
+    },
+    {
+      Id: Guid_2,
+      Message: OnExit: Container.Execute
+    },
+    {
+      Id: Guid_1,
+      Message: OnExit: MakeItMeta.TestApp.Program.Execute
+    }
+  ],
+  outputString:
+Config is validated
+Modified: {tempTargetAssemblyFile}
+Done!
+,
+  errorString: 
+}

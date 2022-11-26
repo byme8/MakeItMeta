@@ -299,4 +299,31 @@ public class SupportedTypesTests : InjectionTest
 
         await Execute(newFile, Config, (replace, main));
     }
+    
+    
+    [Fact]
+    public async Task ByRefLikeParameterAreIgnore()
+    {
+        var newFile = """
+            public class Container
+            {
+                public bool TryGet(Span<byte> bytes)
+                {
+                    return true;
+                }
+
+                public bool Execute()
+                {
+                    return TryGet(new byte[0]);
+                }
+            }
+
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = """
+            return new Container().Execute();
+            """;
+
+        await Execute(newFile, Config, (replace, main));
+    }
 }

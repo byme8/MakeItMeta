@@ -129,9 +129,24 @@ public class MetaMaker
                 var onEnterVoidReturn = onEntryReturnType.FullName == "System.Void";
 
                 var parameters = method.Parameters
-                    .Where(o => !o.IsOut && !o.ParameterType.IsByReference)
-                    .ToArray();
+                    .Where(o =>
+                    {
+                        var parameterTypeDefinition = o.ParameterType.Resolve();
+                        if (parameterTypeDefinition is not null)
+                        {
+                            var isRefStruct = parameterTypeDefinition.CustomAttributes
+                                .Any(a => a.AttributeType.Name.EndsWith("IsByRefLikeAttribute"));
 
+                            if (isRefStruct)
+                            {
+                                return false;
+                            }
+                        }
+                        
+                        return !o.IsOut && !o.ParameterType.IsByReference;
+                    })
+                        .ToArray();
+                
                 var il = method.Body.GetILProcessor();
 
                 var firstInstruction = method.Body.Instructions.First();
