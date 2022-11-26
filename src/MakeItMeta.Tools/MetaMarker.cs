@@ -168,6 +168,7 @@ public class MetaMaker
                     declaringType = declaringType
                         .MakeGenericInstanceType(genericsArguments);
                 }
+                
                 if (method.HasThis)
                 {
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
@@ -292,6 +293,7 @@ public class MetaMaker
             .Where(o => !o.FullName.StartsWith("System."))
             .Where(o => !o.FullName.StartsWith("Microsoft."))
             .Where(o => !metaAttributes.ContainsKey(o.FullName))
+            .Where(o => !o.CustomAttributes.Any(a => a.AttributeType.Name.EndsWith("IsByRefLikeAttribute")))
             .SelectMany(o => o.Methods)
             .ToArray();
 

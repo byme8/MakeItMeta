@@ -100,7 +100,8 @@ public class InjectCommand : ICommand
         {
             try
             {
-                await using var file = File.Open(pathAndAssemblyStream.Path, FileMode.Create);
+                File.Delete(pathAndAssemblyStream.Path);
+                await using var file = File.Open(pathAndAssemblyStream.Path, FileMode.CreateNew);
                 await pathAndAssemblyStream.Stream.CopyToAsync(file);
                 await console.Output.WriteLineAsync($"Modified: {pathAndAssemblyStream.Path}");
             }

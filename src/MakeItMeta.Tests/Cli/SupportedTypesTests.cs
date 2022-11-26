@@ -302,9 +302,17 @@ public class SupportedTypesTests : InjectionTest
     
     
     [Fact]
-    public async Task ByRefLikeParameterAreIgnore()
+    public async Task ByRefLikeStructsAreIgnore()
     {
         var newFile = """
+            public ref struct RefLikeStruct
+            {
+                public int Get()
+                {
+                    return 42;
+                }
+            }
+        
             public class Container
             {
                 public bool TryGet(Span<byte> bytes)
@@ -314,6 +322,8 @@ public class SupportedTypesTests : InjectionTest
 
                 public bool Execute()
                 {
+                    var a = new RefLikeStruct();
+                    var value = a.Get(); 
                     return TryGet(new byte[0]);
                 }
             }
