@@ -1,8 +1,8 @@
 ﻿{
   Errors: [
     {
-      Code: MISSING_METHOD,
-      Message: The method 'MissingExecute' is missing in type 'MakeItMeta.TestApp.Executor'
+      Code: MISSING_SYMBOL,
+      Message: Failed to find symbol 'MakeItMeta.TestApp.Executor.MissingExecute'
     }
   ]
 }

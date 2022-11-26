@@ -10,7 +10,6 @@ public class MetaMaker
     public Result<IReadOnlyList<MemoryStream>> MakeItMeta(Stream[] targetAssemblies, InjectionConfig? injectionConfig = null, string[]? searchFolders = null)
     {
         var readParameters = PrepareReadParameters(searchFolders);
-
         var targetModules = targetAssemblies
             .Select(o => ModuleDefinition.ReadModule(o, readParameters))
             .ToArray();
@@ -20,18 +19,23 @@ public class MetaMaker
             .Select(ModuleDefinition.ReadModule)
             .ToArray() ?? Array.Empty<ModuleDefinition>();
 
+        var allModules = new List<ModuleDefinition>();
+        allModules.AddRange(targetModules);
+        allModules.AddRange(injectableModules);
+
+        var allTypes = allModules
+            .SelectMany(o => o.Types)
+            .ToArray();
+
+        var validationError = MetaConfigValidator.Validate(allTypes, injectionConfig).Unwrap();
+        if (validationError)
+        {
+            return validationError;
+        }
+
         var resultAssemblies = new List<MemoryStream>(targetAssemblies.Length);
         foreach (var targetModule in targetModules)
         {
-            var allModules = new List<ModuleDefinition>();
-            allModules.Add(targetModule);
-            allModules.AddRange(injectableModules);
-
-            var targetTypes = targetModule.Types.ToArray();
-            var allTypes = allModules
-                .SelectMany(o => o.Types)
-                .ToArray();
-
             if (injectionConfig is not null)
             {
                 var injectAttributeError = InjectAttributes(targetModule, allTypes, injectionConfig).Unwrap();
@@ -70,7 +74,7 @@ public class MetaMaker
         {
             AssemblyResolver = resolver
         };
-        
+
         return readParameters;
     }
 
@@ -161,13 +165,13 @@ public class MetaMaker
                     method.Body.Variables.Add(onEnterReturnVariable);
                 }
 
-                if(method.HasThis)
+                if (method.HasThis)
                 {
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
                     if (method.DeclaringType.IsValueType)
                     {
-                        il.InsertBefore(firstInstruction,il.Create(OpCodes.Ldobj, method.DeclaringType));
-                        il.InsertBefore(firstInstruction,il.Create(OpCodes.Box, method.DeclaringType));
+                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldobj, method.DeclaringType));
+                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, method.DeclaringType));
                     }
                 }
                 else
@@ -196,7 +200,7 @@ public class MetaMaker
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Stloc, onEnterReturnVariable));
                 }
 
-                if(method.HasThis)
+                if (method.HasThis)
                 {
                     il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldarg_0));
                     if (method.DeclaringType.IsValueType)
@@ -335,29 +339,19 @@ public class MetaMaker
             var attributeTypeDefinition = metaAttributes.GetValueOrDefault(entry.Attribute);
             if (attributeTypeDefinition is null)
             {
-                return Result.Error(new Error("FAILED_TO_FIND_ATTRIBUTE", $"Failed to find meta attribute '{entry.Attribute}'"));
+                continue;
             }
 
             var currentMethods = allMethods.ToArray();
             if (entry.Add is not null)
             {
-                var (methodsToAdd, error) = ExtractMethods(entry.Add, allMethodsByType).Unwrap();
-                if (error)
-                {
-                    return error;
-                }
-
-                currentMethods = methodsToAdd.ToArray();
+                var methodsToAdd = ExtractMethods(entry.Add, allMethodsByType);
+                currentMethods = methodsToAdd;
             }
 
             if (entry.Ignore is not null)
             {
-                var (methodsToIgnore, error) = ExtractMethods(entry.Ignore, allMethodsByType).Unwrap();
-                if (error)
-                {
-                    return error;
-                }
-
+                var methodsToIgnore = ExtractMethods(entry.Ignore, allMethodsByType);
                 var methodToIgnoreSet = methodsToIgnore.ToHashSet();
                 currentMethods = currentMethods
                     .Where(o => !methodToIgnoreSet.Contains(o))
@@ -377,60 +371,27 @@ public class MetaMaker
         return Result.Success();
     }
 
-    private static Result<MethodDefinition[]> ExtractMethods(InjectionTypeEntry[] entries, Dictionary<string, MethodDefinition[]> allMethodsByType)
+    private static MethodDefinition[] ExtractMethods(InjectionTypeEntry[] entries, Dictionary<string, MethodDefinition[]> allMethodsByType)
     {
-        var missingTypes = entries
-            .Where(o => !allMethodsByType.ContainsKey(o.Name))
-            .ToArray();
-
-        if (missingTypes.Any())
-        {
-            return missingTypes
-                .Select(o => new Error("MISSING_TYPE", $"The type '{o.Name}' is missing"))
-                .ToArray();
-        }
-
         var methods = entries
-            .Select(o =>
+            .Where(o => allMethodsByType.ContainsKey(o.Name))
+            .SelectMany(o =>
             {
                 var typeMethods = allMethodsByType[o.Name];
                 if (o.Methods?.Any() ?? false)
                 {
-                    var methodNames = typeMethods.Select(oo => oo.Name).ToArray();
-                    var missingMethods = o.Methods
-                        .Where(oo => !methodNames.Contains(oo))
-                        .ToArray();
-
-                    if (missingMethods.Any())
-                    {
-                        var errors = missingMethods
-                            .Select(oo => new Error("MISSING_METHOD", $"The method '{oo}' is missing in type '{o.Name}'"))
-                            .ToArray();
-
-                        return Result.Error<MethodDefinition[]>(errors);
-                    }
-
                     typeMethods = typeMethods
                         .Where(oo => o.Methods.Contains(oo.Name))
                         .ToArray();
 
-                    return Result.Success(typeMethods);
+                    return typeMethods;
                 }
 
-                return Result.Success(typeMethods);
+                return typeMethods;
             })
             .ToArray();
 
-        var (methodDefinitions, errors) = methods.Unwrap();
-
-        if (errors)
-        {
-            return errors;
-        }
-        
-        return methodDefinitions
-            .SelectMany(o => o)
-            .ToArray();
+        return methods;
     }
 
     void ReplaceJumps(MethodBody methodBody)

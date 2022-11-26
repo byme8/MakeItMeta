@@ -1,8 +1,8 @@
 ﻿{
   Errors: [
     {
-      Code: MISSING_TYPE,
-      Message: The type 'MakeItMeta.TestApp.MissingExecutor' is missing
+      Code: MISSING_SYMBOL,
+      Message: Failed to find symbol 'MakeItMeta.TestApp.MissingExecutor'
     }
   ]
 }

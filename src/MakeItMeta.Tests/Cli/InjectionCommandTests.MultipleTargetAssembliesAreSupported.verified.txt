@@ -1,0 +1,31 @@
+﻿{
+  firstResult: first,
+  secondResult: second,
+  firstCalls: [
+    {
+      Id: Guid_1,
+      Message: OnEnter: FirstDoer.DoIt
+    },
+    {
+      Id: Guid_1,
+      Message: OnExit: FirstDoer.DoIt
+    }
+  ],
+  secondCalls: [
+    {
+      Id: Guid_2,
+      Message: OnEnter: SecondDoer.DoIt
+    },
+    {
+      Id: Guid_2,
+      Message: OnExit: SecondDoer.DoIt
+    }
+  ],
+  outputString:
+Config is validated
+Modified: {firstAssemblyFile}
+Modified: {secondAssemblyFile}
+Done!
+,
+  errorString: 
+}
