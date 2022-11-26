@@ -180,7 +180,7 @@ public class MetaMaker
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Dup));
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, i));
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg, parameter));
-                    if (parameter.ParameterType.IsValueType)
+                    if (parameter.ParameterType.IsValueType || parameter.ParameterType.IsGenericParameter)
                     {
                         il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, parameter.ParameterType));
                     }

@@ -266,11 +266,26 @@ public class SupportedTypesTests : InjectionTest
                     value = _value;
                     return true;
                 }
+                
+                public bool SetAndRaise<T>(List<T> property, ref T field, T value)
+                {
+                    if (EqualityComparer<T>.Default.Equals(field, value))
+                    {
+                        return false;
+                    }
+
+                    var old = field;
+                    field = value;
+                    return true;
+                }
 
                 public TValue Execute()
                 {
                     TryGet(out var newValue);
                     TryPopulate(ref newValue);
+                    
+                    int a = 10;
+                    SetAndRaise<int>(new List<int>(), ref a, 42);
                     
                     return newValue;
                 }
@@ -284,5 +299,4 @@ public class SupportedTypesTests : InjectionTest
 
         await Execute(newFile, Config, (replace, main));
     }
-
 }

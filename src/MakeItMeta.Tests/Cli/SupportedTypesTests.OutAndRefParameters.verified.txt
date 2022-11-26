@@ -26,6 +26,14 @@
       Message: OnExit: Container`1.TryPopulate
     },
     {
+      Id: Guid_5,
+      Message: OnEnter: Container`1.SetAndRaise
+    },
+    {
+      Id: Guid_5,
+      Message: OnExit: Container`1.SetAndRaise
+    },
+    {
       Id: Guid_2,
       Message: OnExit: Container`1.Execute
     },
