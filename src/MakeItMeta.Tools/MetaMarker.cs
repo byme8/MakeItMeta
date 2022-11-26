@@ -101,15 +101,6 @@ public class MetaMaker
                 return new Error("METHOD_MISSING_INSTRUCTIONS", $"The method '{fullMethodName}' missing instructions");
             }
 
-            if (method.Parameters.Any(
-                    o => o.IsOut || o.ParameterType.IsByReference))
-            {
-                var message = $"At the moment method '{fullMethodName}' is not supported. It has generics or by references parameters";
-                System.Console.WriteLine(message);
-                continue;
-                // return new Error("METHOD_IS_NOT_SUPPORTED", message);
-            }
-
             var typeMetaAttributes = method.DeclaringType.CustomAttributes
                 .Where(a => a.AttributeType.Resolve().BaseType.Name == "MetaAttribute")
                 .ToArray();
@@ -136,19 +127,9 @@ public class MetaMaker
                 var onExitMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnExit"));
                 var onEntryReturnType = method.Module.ImportReference(onEntryMethod.ReturnType);
                 var onEnterVoidReturn = onEntryReturnType.FullName == "System.Void";
-                if (!onEnterVoidReturn)
-                {
-                    var onExitAcceptType = method.Module.ImportReference(onExitMethod.Parameters.Last().ParameterType);
-                    if (onEntryReturnType.FullName != onExitAcceptType.FullName)
-                    {
-                        return new Error(
-                            "ATTRIBUTE_NOT_FOLLOW_CONVENTION",
-                            "The OnExit method has to accept the return value from OnEnter as last parameter");
-                    }
-                }
 
                 var parameters = method.Parameters
-                    .Where(o => !o.IsOut || !o.ParameterType.IsByReference)
+                    .Where(o => !o.IsOut && !o.ParameterType.IsByReference)
                     .ToArray();
 
                 var il = method.Body.GetILProcessor();

@@ -241,5 +241,48 @@ public class SupportedTypesTests : InjectionTest
 
         await Execute(newFile, Config, (replace, main));
     }
+    
+    [Fact]
+    public async Task OutAndRefParameters()
+    {
+        var newFile = """
+            public class Container<TValue>
+            {
+                TValue _value;
+                
+                public Container(TValue value)
+                {
+                    _value = value;
+                }
+            
+                public bool TryGet(out TValue value)
+                {
+                    value = _value;
+                    return true;
+                }
+
+                public bool TryPopulate(ref TValue value)
+                {
+                    value = _value;
+                    return true;
+                }
+
+                public TValue Execute()
+                {
+                    TryGet(out var newValue);
+                    TryPopulate(ref newValue);
+                    
+                    return newValue;
+                }
+            }
+
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = """
+            return new Container<int>(42).Execute();
+            """;
+
+        await Execute(newFile, Config, (replace, main));
+    }
 
 }
