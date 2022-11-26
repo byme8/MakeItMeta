@@ -175,7 +175,7 @@ public class MetaMaker
                 if (method.HasThis)
                 {
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
-                    
+
                     if (declaringType.IsValueType)
                     {
                         il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldobj, declaringType));
@@ -194,10 +194,15 @@ public class MetaMaker
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Newarr, targetModule.ImportReference(typeof(object))));
                 for (var i = 0; i < parameters.Length; i++)
                 {
+                    var parameter = parameters[i];
+
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Dup));
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, i));
-                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg, parameters[i]));
-                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, parameters[i].ParameterType));
+                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg, parameter));
+                    if (parameter.ParameterType.IsValueType)
+                    {
+                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, parameter.ParameterType));
+                    }
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Stelem_Ref));
                 }
 
@@ -208,9 +213,11 @@ public class MetaMaker
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Stloc, onEnterReturnVariable));
                 }
 
+                Instruction? addedBeforeLast = null;
                 if (method.HasThis)
                 {
-                    il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldarg_0));
+                    addedBeforeLast = il.Create(OpCodes.Ldarg_0);
+                    il.InsertBefore(lastInstruction, addedBeforeLast);
                     if (declaringType.IsValueType)
                     {
                         il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldobj, declaringType));
@@ -219,7 +226,8 @@ public class MetaMaker
                 }
                 else
                 {
-                    il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldnull));
+                    addedBeforeLast = il.Create(OpCodes.Ldnull);
+                    il.InsertBefore(lastInstruction, addedBeforeLast);
                 }
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, targetModuleName));
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
@@ -231,11 +239,36 @@ public class MetaMaker
 
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Call, onExitMethod));
 
-                ReplaceJumps(method.Body);
+                FixTryCatch(method.Body, addedBeforeLast);
+                ReplaceShortForms(method.Body);
             }
         }
 
         return Result.Success();
+    }
+
+    private void FixTryCatch(MethodBody methodBody, Instruction addedBeforeLast)
+    {
+        if (!methodBody.HasExceptionHandlers)
+        {
+            return;
+        }
+
+        var endOnLast = methodBody.ExceptionHandlers
+            .Where(o => o.TryEnd == methodBody.Instructions.Last());
+        
+        var handlerOnLast = methodBody.ExceptionHandlers
+            .Where(o => o.HandlerEnd == methodBody.Instructions.Last());
+
+        foreach (var exceptionHandler in handlerOnLast)
+        {
+            exceptionHandler.HandlerEnd = addedBeforeLast;
+        }
+        
+        foreach (var exceptionHandler in endOnLast)
+        {
+            exceptionHandler.HandlerEnd = addedBeforeLast;
+        }
     }
 
     private static bool MethodThatHasMetaAttributeOrContainingTypeHasMetaAttribute(MethodDefinition method)
@@ -330,7 +363,7 @@ public class MetaMaker
         return methods;
     }
 
-    void ReplaceJumps(MethodBody methodBody)
+    void ReplaceShortForms(MethodBody methodBody)
     {
         foreach (var instruction in methodBody.Instructions)
         {
@@ -427,6 +460,16 @@ public class MetaMaker
             if (instruction.OpCode == OpCodes.Beq_S)
             {
                 instruction.OpCode = OpCodes.Beq;
+            }
+
+            if (instruction.OpCode == OpCodes.Ldloca_S)
+            {
+                instruction.OpCode = OpCodes.Ldloca;
+            }
+
+            if (instruction.OpCode == OpCodes.Ldloc_S)
+            {
+                instruction.OpCode = OpCodes.Ldloc;
             }
         }
     }

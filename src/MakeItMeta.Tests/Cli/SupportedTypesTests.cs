@@ -107,6 +107,59 @@ public class SupportedTypesTests : InjectionTest
     }
 
     [Fact]
+    public async Task MethodWithLock()
+    {
+        var newFile = """
+            using System;
+            using System.Collections.Generic;
+            
+            public class Container
+            {
+                private List<string> _items = new List<string>();
+
+                public void Add(string text)
+                {
+                    _ = text ?? throw new ArgumentNullException(nameof(text));
+                    lock (_items)
+                    {
+                        _items.Add(text);
+                    }
+                }
+            }
+
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = @"new Container().Add(""hello""); return 1;";
+
+        await Execute(newFile, Config, (replace, main));
+    }
+
+    [Fact]
+    public async Task VoidReturn()
+    {
+        var newFile = """
+            using System;
+            using System.Collections.Generic;
+            
+            public class Container
+            {
+                private List<string> _items = new List<string>();
+
+                public void Add(string text)
+                {
+                    _ = text ?? throw new ArgumentNullException(nameof(text));
+                    _items.Add(text);
+                }
+            }
+
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = @"new Container().Add(""hello""); return 1;";
+
+        await Execute(newFile, Config, (replace, main));
+    }
+
+    [Fact]
     public async Task GenericStruct()
     {
         var newFile = """

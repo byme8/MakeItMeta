@@ -1,0 +1,27 @@
+﻿{
+  result: 1,
+  calls: [
+    {
+      Id: Guid_1,
+      Message: OnEnter: MakeItMeta.TestApp.Program.Execute
+    },
+    {
+      Id: Guid_2,
+      Message: OnEnter: Container.Add
+    },
+    {
+      Id: Guid_2,
+      Message: OnExit: Container.Add
+    },
+    {
+      Id: Guid_1,
+      Message: OnExit: MakeItMeta.TestApp.Program.Execute
+    }
+  ],
+  outputString:
+Config is validated
+Modified: {tempTargetAssemblyFile}
+Done!
+,
+  errorString: 
+}
