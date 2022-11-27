@@ -1,125 +1,14 @@
 using System.Reflection;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 using CliFx.Infrastructure;
 using MakeItMeta.Cli.Commands;
 using MakeItMeta.TestAttributes;
 using MakeItMeta.Tests.Core;
 using MakeItMeta.Tests.Data;
 using Microsoft.CodeAnalysis;
+
 namespace MakeItMeta.Tests.Cli;
-
-public class InjectionTest
-{
-    public const string Attribute =
-        """
-                using MakeItMeta.Attributes;
-                using MakeItMeta.TestAttributes;
-
-                public class TestAppMetaAttribute : MetaAttribute
-                {
-                    public static Entry? OnEntry(object? @this, string assemblyFullName, string methodName, object?[]? parameters)
-                    {
-                        // place to replace
-                        return TestAttribute.OnEntry(@this, assemblyFullName, methodName, parameters);
-                    }
-
-                    public static void OnExit(object? @this, string assemblyFullName, string methodName, Entry? entry)
-                    {
-                        TestAttribute.OnExit(@this, assemblyFullName, methodName, entry);
-                    }
-                }            
-                """;
-
-    public const string Config = 
-        """
-                {
-                    "targetAssemblies": [],
-                    "additionalAssemblies": 
-                    [
-                        "MakeItMeta.Attributes.dll",
-                        "MakeItMeta.TestAttributes.dll"
-                    ],
-                    "attributes": 
-                    [
-                        {
-                            "name": "MakeItMeta.TestAttributes.TestAttribute",
-                        }
-                    ]
-                }
-                """;
-    
-    public static async Task Execute(string newFile, string config, (string, string) places = default)
-    {
-        var tempTargetAssemblyFile = await PrepareTestAssemblyFile(newFile, places);
-
-        config = config.Replace(@"""targetAssemblies"": []", @$"""targetAssemblies"": [""{tempTargetAssemblyFile}""]");
-        var tempConfigFile = Path.GetTempFileName();
-        await File.WriteAllTextAsync(tempConfigFile, config);
-
-        var console = new FakeInMemoryConsole();
-
-        var command = new InjectCommand();
-        command.Config = tempConfigFile;
-
-        await command.ExecuteAsync(console);
-
-        var modifiedAssembly = await LoadAssembly(tempTargetAssemblyFile);
-
-        var result = modifiedAssembly.Execute();
-
-        var modifiedAssemblyFullName = modifiedAssembly.FullName!;
-        var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(modifiedAssemblyFullName);
-        var outputString = console.ReadOutputString();
-        var errorString = console.ReadErrorString();
-
-        await Verify(new
-        {
-            result,
-            calls,
-            outputString,
-            errorString
-        })
-            .Track(tempTargetAssemblyFile)
-            .Track(tempConfigFile);
-    }
-
-    public static async Task<Assembly> LoadAssembly(string tempTargetAssemblyFile)
-    {
-
-        var modifiesAssemblyBytes = await File.ReadAllBytesAsync(tempTargetAssemblyFile);
-        var modifiedAssembly = Assembly.Load(modifiesAssemblyBytes);
-        return modifiedAssembly;
-    }
-
-    public static async Task<string> PrepareTestAssemblyFile(string? additionalFile = null, (string, string) places = default)
-    {
-        var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll");
-        var testAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.TestAttributes.dll");
-        var project = TestProject.Project;
-
-        if (!string.IsNullOrEmpty(additionalFile))
-        {
-            project = project.AddDocument("AdditionalFile.cs", additionalFile)
-                .Project;
-        }
-
-        if (!string.IsNullOrEmpty(additionalFile))
-        {
-            project = project
-                .AddMetadataReference(testAttributesReference)
-                .AddMetadataReference(metaAttributesReference);
-        }
-
-        if (places != default)
-        {
-            project = await project.ReplacePartOfDocumentAsync("Program.cs", places);
-        }
-
-        var testAssembly = await project.CompileToRealAssemblyAsBytes();
-        var tempTargetAssemblyFile = Path.GetTempFileName();
-        await File.WriteAllBytesAsync(tempTargetAssemblyFile, testAssembly);
-        return tempTargetAssemblyFile;
-    }
-}
 
 [UsesVerify]
 public class InjectionCommandTests : InjectionTest
@@ -200,7 +89,7 @@ public class InjectionCommandTests : InjectionTest
         var tempTargetAssemblyFile = Path.GetTempFileName();
         await File.WriteAllBytesAsync(tempTargetAssemblyFile, testAssembly);
 
-        config = config.Replace(@"""targetAssemblies"": [],", @$"""targetAssemblies"": [""{tempTargetAssemblyFile}""],");
+        config = config.Replace(@"""targetAssemblies"": [],", @$"""targetAssemblies"": [""{Json.Encode(tempTargetAssemblyFile)}""],");
         var tempConfigFile = Path.GetTempFileName();
         await File.WriteAllTextAsync(tempConfigFile, config);
 
@@ -327,7 +216,7 @@ public class InjectionCommandTests : InjectionTest
         
         var config = $$"""
             {
-                "targetAssemblies": ["{{firstAssemblyFile}}", "{{secondAssemblyFile}}"],
+                "targetAssemblies": ["{{Json.Encode(firstAssemblyFile)}}", "{{Json.Encode(secondAssemblyFile)}}"],
                 "additionalAssemblies": 
                 [
                     "MakeItMeta.Attributes.dll",
@@ -386,5 +275,125 @@ public class InjectionCommandTests : InjectionTest
             .Track(firstAssemblyFile)
             .Track(secondAssemblyFile)
             .Track(configFile);
+    }
+}
+
+public class InjectionTest
+{
+    public const string Attribute =
+        """
+                using MakeItMeta.Attributes;
+                using MakeItMeta.TestAttributes;
+
+                public class TestAppMetaAttribute : MetaAttribute
+                {
+                    public static Entry? OnEntry(object? @this, string assemblyFullName, string methodName, object?[]? parameters)
+                    {
+                        // place to replace
+                        return TestAttribute.OnEntry(@this, assemblyFullName, methodName, parameters);
+                    }
+
+                    public static void OnExit(object? @this, string assemblyFullName, string methodName, Entry? entry)
+                    {
+                        TestAttribute.OnExit(@this, assemblyFullName, methodName, entry);
+                    }
+                }            
+                """;
+
+    public const string Config = 
+        """
+                {
+                    "targetAssemblies": [],
+                    "additionalAssemblies": 
+                    [
+                        "MakeItMeta.Attributes.dll",
+                        "MakeItMeta.TestAttributes.dll"
+                    ],
+                    "attributes": 
+                    [
+                        {
+                            "name": "MakeItMeta.TestAttributes.TestAttribute",
+                        }
+                    ]
+                }
+                """;
+
+    public InjectionTest()
+    {
+        Json = JavaScriptEncoder.Create(UnicodeRanges.All);
+    }
+
+    public JavaScriptEncoder Json { get; set; }
+
+    public async Task Execute(string newFile, string config, (string, string) places = default)
+    {
+        var tempTargetAssemblyFile = await PrepareTestAssemblyFile(newFile, places);
+        config = config.Replace(@"""targetAssemblies"": []", @$"""targetAssemblies"": [""{Json.Encode(tempTargetAssemblyFile)}""]");
+        var tempConfigFile = Path.GetTempFileName();
+        await File.WriteAllTextAsync(tempConfigFile, config);
+
+        var console = new FakeInMemoryConsole();
+
+        var command = new InjectCommand();
+        command.Config = tempConfigFile;
+
+        await command.ExecuteAsync(console);
+
+        var modifiedAssembly = await LoadAssembly(tempTargetAssemblyFile);
+
+        var result = modifiedAssembly.Execute();
+
+        var modifiedAssemblyFullName = modifiedAssembly.FullName!;
+        var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(modifiedAssemblyFullName);
+        var outputString = console.ReadOutputString();
+        var errorString = console.ReadErrorString();
+
+        await Verify(new
+        {
+            result,
+            calls,
+            outputString,
+            errorString
+        })
+            .Track(tempTargetAssemblyFile)
+            .Track(tempConfigFile);
+    }
+
+    public static async Task<Assembly> LoadAssembly(string tempTargetAssemblyFile)
+    {
+
+        var modifiesAssemblyBytes = await File.ReadAllBytesAsync(tempTargetAssemblyFile);
+        var modifiedAssembly = Assembly.Load(modifiesAssemblyBytes);
+        return modifiedAssembly;
+    }
+
+    public static async Task<string> PrepareTestAssemblyFile(string? additionalFile = null, (string, string) places = default)
+    {
+        var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll");
+        var testAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.TestAttributes.dll");
+        var project = TestProject.Project;
+
+        if (!string.IsNullOrEmpty(additionalFile))
+        {
+            project = project.AddDocument("AdditionalFile.cs", additionalFile)
+                .Project;
+        }
+
+        if (!string.IsNullOrEmpty(additionalFile))
+        {
+            project = project
+                .AddMetadataReference(testAttributesReference)
+                .AddMetadataReference(metaAttributesReference);
+        }
+
+        if (places != default)
+        {
+            project = await project.ReplacePartOfDocumentAsync("Program.cs", places);
+        }
+
+        var testAssembly = await project.CompileToRealAssemblyAsBytes();
+        var tempTargetAssemblyFile = Path.GetTempFileName();
+        await File.WriteAllBytesAsync(tempTargetAssemblyFile, testAssembly);
+        return tempTargetAssemblyFile;
     }
 }
