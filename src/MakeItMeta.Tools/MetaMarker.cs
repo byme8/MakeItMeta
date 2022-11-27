@@ -7,18 +7,45 @@ namespace MakeItMeta.Tools;
 
 public class MetaMaker
 {
-    public Result<IReadOnlyList<MemoryStream>> MakeItMeta(Stream[] targetAssemblies, InjectionConfig? injectionConfig = null, string[]? searchFolders = null)
+    public Result MakeItMeta(string[] targetAssembliesPath, InjectionConfig? injectionConfig = null, string[]? searchFolders = null)
     {
         var readParameters = PrepareReadParameters(searchFolders);
-        var targetModules = targetAssemblies
+        var targetModules = targetAssembliesPath
             .Select(o => ModuleDefinition.ReadModule(o, readParameters))
             .ToArray();
+
+        var targetAssemblies = new Dictionary<string, AssemblyDefinition>();
+        foreach (var path in targetAssembliesPath)
+        {
+            var module = ModuleDefinition.ReadModule(path);
+            var assembly = module.Assembly;
+            var assemblies = module.AssemblyReferences
+                .Select(o => module.AssemblyResolver.Resolve(o))
+                .ToArray();
+
+            if (targetAssemblies.ContainsKey(assembly.Name.Name))
+            {
+                continue;
+            }
+            
+            targetAssemblies.Add(assembly.Name.Name, assembly);
+            
+            foreach (var assemblyReference in assemblies)
+            {
+                if (targetAssemblies.ContainsKey(assemblyReference.Name.Name))
+                {
+                    continue;
+                }
+                
+                targetAssemblies.Add(assemblyReference.Name.Name, assemblyReference);
+            }
+        }
 
         var injectableModules = injectionConfig?
             .AdditionalAssemblies?
             .Select(ModuleDefinition.ReadModule)
             .ToArray() ?? Array.Empty<ModuleDefinition>();
-
+        
         var allModules = new List<ModuleDefinition>();
         allModules.AddRange(targetModules);
         allModules.AddRange(injectableModules);
@@ -33,7 +60,6 @@ public class MetaMaker
             return validationError;
         }
 
-        var resultAssemblies = new List<MemoryStream>(targetAssemblies.Length);
         foreach (var targetModule in targetModules)
         {
             if (injectionConfig is not null)
@@ -51,13 +77,15 @@ public class MetaMaker
                 return injectionError;
             }
 
-            var newAssembly = new MemoryStream();
-            targetModule.Write(newAssembly);
-            newAssembly.Seek(0, SeekOrigin.Begin);
-            resultAssemblies.Add(newAssembly);
+            targetModule.Write();
         }
 
-        return resultAssemblies;
+        allModules.ForEach(o =>
+        {
+            o.Dispose();
+        });
+
+        return Result.Success();
     }
 
     private ReaderParameters PrepareReadParameters(string[]? searchFolders)
@@ -72,9 +100,11 @@ public class MetaMaker
         }
         var readParameters = new ReaderParameters
         {
-            AssemblyResolver = resolver
+            AssemblyResolver = resolver,
+            ReadingMode = ReadingMode.Immediate,
+            ReadWrite = true
         };
-
+        
         return readParameters;
     }
 

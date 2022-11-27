@@ -89,7 +89,8 @@ public class InjectionCommandTests : InjectionTest
         var tempTargetAssemblyFile = Path.GetTempFileName();
         await File.WriteAllBytesAsync(tempTargetAssemblyFile, testAssembly);
 
-        config = config.Replace(@"""targetAssemblies"": [],", @$"""targetAssemblies"": [""{Json.Encode(tempTargetAssemblyFile)}""],");
+        config = config.Replace(@"""targetAssemblies"": [],",
+            @$"""targetAssemblies"": [""{Json.Encode(tempTargetAssemblyFile)}""],");
         var tempConfigFile = Path.GetTempFileName();
         await File.WriteAllTextAsync(tempConfigFile, config);
 
@@ -102,10 +103,10 @@ public class InjectionCommandTests : InjectionTest
         var output = console.ReadOutputString();
         var error = console.ReadErrorString();
         await Verify(new
-        {
-            outputString = output,
-            errorString = error
-        })
+            {
+                outputString = output,
+                errorString = error
+            })
             .UseParameters(userCase)
             .Track(tempTargetAssemblyFile)
             .Track(tempConfigFile);
@@ -182,7 +183,7 @@ public class InjectionCommandTests : InjectionTest
 
         await Execute(string.Empty, config);
     }
-    
+
     [Fact]
     public async Task MetaAttributesAreIgnored()
     {
@@ -206,14 +207,14 @@ public class InjectionCommandTests : InjectionTest
     {
         var firstDoer = @"public static class FirstDoer { public static string DoIt() => ""first""; }";
         var secondDoer = @"public static class SecondDoer { public static string DoIt() => ""second""; }";
-        
+
         var replace = "return new Provider().Provide().Execute(); // place to replace";
         var firstMain = "return FirstDoer.DoIt();";
         var secondMain = "return SecondDoer.DoIt();";
-        
-        var firstAssemblyFile = await PrepareTestAssemblyFile(firstDoer, (replace, firstMain));
-        var secondAssemblyFile = await PrepareTestAssemblyFile(secondDoer, (replace, secondMain));
-        
+
+        var firstAssemblyFile = await TestProject.Project.PrepareTestAssemblyFile(firstDoer, (replace, firstMain));
+        var secondAssemblyFile = await TestProject.Project.PrepareTestAssemblyFile(secondDoer, (replace, secondMain));
+
         var config = $$"""
             {
                 "targetAssemblies": ["{{Json.Encode(firstAssemblyFile)}}", "{{Json.Encode(secondAssemblyFile)}}"],
@@ -238,7 +239,7 @@ public class InjectionCommandTests : InjectionTest
                 ]
             }
             """;
-        
+
         var configFile = Path.GetTempFileName();
         await File.WriteAllTextAsync(configFile, config);
 
@@ -248,14 +249,14 @@ public class InjectionCommandTests : InjectionTest
         command.Config = configFile;
 
         await command.ExecuteAsync(console);
-     
-        var firstAssembly = await LoadAssembly(firstAssemblyFile);
-        var secondAssembly = await LoadAssembly(secondAssemblyFile);
+
+        var firstAssembly = LoadAssembly(firstAssemblyFile);
+        var secondAssembly = LoadAssembly(secondAssemblyFile);
 
         var firstResult = firstAssembly.Execute();
         var secondResult = secondAssembly.Execute();
-        
-        
+
+
         var firstAssemblyFullName = firstAssembly.FullName!;
         var secondAssemblyFullName = secondAssembly.FullName!;
         var firstCalls = TestAttribute.MethodsByAssembly.GetValueOrDefault(firstAssemblyFullName);
@@ -300,7 +301,7 @@ public class InjectionTest
                 }            
                 """;
 
-    public const string Config = 
+    public const string Config =
         """
                 {
                     "targetAssemblies": [],
@@ -327,8 +328,11 @@ public class InjectionTest
 
     public async Task Execute(string newFile, string config, (string, string) places = default)
     {
-        var tempTargetAssemblyFile = await PrepareTestAssemblyFile(newFile, places);
-        config = config.Replace(@"""targetAssemblies"": []", @$"""targetAssemblies"": [""{Json.Encode(tempTargetAssemblyFile)}""]");
+        var tempTargetAssemblyFile = await TestProject.Project.PrepareTestAssemblyFile(newFile, places);
+        config = config.Replace(
+            @"""targetAssemblies"": []",
+            @$"""targetAssemblies"": [""{Json.Encode(tempTargetAssemblyFile)}""]");
+
         var tempConfigFile = Path.GetTempFileName();
         await File.WriteAllTextAsync(tempConfigFile, config);
 
@@ -339,7 +343,7 @@ public class InjectionTest
 
         await command.ExecuteAsync(console);
 
-        var modifiedAssembly = await LoadAssembly(tempTargetAssemblyFile);
+        var modifiedAssembly = LoadAssembly(tempTargetAssemblyFile);
 
         var result = modifiedAssembly.Execute();
 
@@ -349,51 +353,19 @@ public class InjectionTest
         var errorString = console.ReadErrorString();
 
         await Verify(new
-        {
-            result,
-            calls,
-            outputString,
-            errorString
-        })
+            {
+                result,
+                calls,
+                outputString,
+                errorString
+            })
             .Track(tempTargetAssemblyFile)
             .Track(tempConfigFile);
     }
 
-    public static async Task<Assembly> LoadAssembly(string tempTargetAssemblyFile)
+    public static Assembly LoadAssembly(string tempTargetAssemblyFile)
     {
-
-        var modifiesAssemblyBytes = await File.ReadAllBytesAsync(tempTargetAssemblyFile);
-        var modifiedAssembly = Assembly.Load(modifiesAssemblyBytes);
+        var modifiedAssembly = Assembly.LoadFrom(tempTargetAssemblyFile);
         return modifiedAssembly;
-    }
-
-    public static async Task<string> PrepareTestAssemblyFile(string? additionalFile = null, (string, string) places = default)
-    {
-        var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll");
-        var testAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.TestAttributes.dll");
-        var project = TestProject.Project;
-
-        if (!string.IsNullOrEmpty(additionalFile))
-        {
-            project = project.AddDocument("AdditionalFile.cs", additionalFile)
-                .Project;
-        }
-
-        if (!string.IsNullOrEmpty(additionalFile))
-        {
-            project = project
-                .AddMetadataReference(testAttributesReference)
-                .AddMetadataReference(metaAttributesReference);
-        }
-
-        if (places != default)
-        {
-            project = await project.ReplacePartOfDocumentAsync("Program.cs", places);
-        }
-
-        var testAssembly = await project.CompileToRealAssemblyAsBytes();
-        var tempTargetAssemblyFile = Path.GetTempFileName();
-        await File.WriteAllBytesAsync(tempTargetAssemblyFile, testAssembly);
-        return tempTargetAssemblyFile;
     }
 }

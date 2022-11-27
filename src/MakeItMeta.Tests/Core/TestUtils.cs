@@ -161,4 +161,36 @@ public static class TestExtensions
 
         return settingsTask;
     }
+    
+    public static async Task<string> PrepareTestAssemblyFile(
+        this Project project,
+        string? additionalFile = null,
+        (string, string) places = default)
+    {
+        var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll");
+        var testAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.TestAttributes.dll");
+
+        if (!string.IsNullOrEmpty(additionalFile))
+        {
+            project = project.AddDocument("AdditionalFile.cs", additionalFile)
+                .Project;
+        }
+
+        if (!string.IsNullOrEmpty(additionalFile))
+        {
+            project = project
+                .AddMetadataReference(testAttributesReference)
+                .AddMetadataReference(metaAttributesReference);
+        }
+
+        if (places != default)
+        {
+            project = await project.ReplacePartOfDocumentAsync("Program.cs", places);
+        }
+
+        var testAssembly = await project.CompileToRealAssemblyAsBytes();
+        var tempTargetAssemblyFile = Path.GetTempFileName();
+        await File.WriteAllBytesAsync(tempTargetAssemblyFile, testAssembly);
+        return tempTargetAssemblyFile;
+    }
 }

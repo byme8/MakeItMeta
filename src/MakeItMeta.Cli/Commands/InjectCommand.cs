@@ -6,6 +6,7 @@ using CliFx.Infrastructure;
 using MakeItMeta.Cli.Data;
 using MakeItMeta.Tools;
 using MakeItMeta.Tools.Results;
+
 #pragma warning disable CS8618
 
 namespace MakeItMeta.Cli.Commands;
@@ -53,7 +54,7 @@ public class InjectCommand : ICommand
                 var add = att.Add?
                     .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
                     .ToArray();
-                
+
                 var ignore = att.Ignore?
                     .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
                     .ToArray();
@@ -62,13 +63,14 @@ public class InjectCommand : ICommand
             })
             .ToArray();
 
-        var targetAssemblies = inputConfig.TargetAssemblies!
-            .Select(File.OpenRead)
-            .Cast<Stream>()
-            .ToArray();
+        var targetAssemblies = inputConfig.TargetAssemblies!.ToArray();
 
         var additionalAssemblies = inputConfig.AdditionalAssemblies?
-            .Select(File.OpenRead)
+            .Select(o =>
+            {
+                var bytes = File.ReadAllBytes(o);
+                return new MemoryStream(bytes);
+            })
             .Cast<Stream>()
             .ToArray();
 
@@ -80,39 +82,18 @@ public class InjectCommand : ICommand
             .ToArray();
 
         var maker = new MetaMaker();
-        var (resultAssemblies, metaMakingError) = maker.MakeItMeta(targetAssemblies, injectionConfig, searchFolders).Unwrap();
+        var metaMakingError = maker.MakeItMeta(targetAssemblies, injectionConfig, searchFolders).Unwrap();
         if (metaMakingError)
         {
             await console.Error.WriteLineAsync(metaMakingError.Errors.First().Message);
             return;
         }
 
-        foreach (var targetAssembly in targetAssemblies)
+        foreach (var path in inputConfig.TargetAssemblies!)
         {
-            await targetAssembly.DisposeAsync();
+            await console.Output.WriteLineAsync($"Modified: {path}");
         }
-        
-        var pathAndAssembly = inputConfig.TargetAssemblies!
-            .Zip(resultAssemblies, (path, stream) => new { Path = path, Stream = stream })
-            .ToArray();
 
-        foreach (var pathAndAssemblyStream in pathAndAssembly)
-        {
-            try
-            {
-                File.Delete(pathAndAssemblyStream.Path);
-                await using var file = File.Open(pathAndAssemblyStream.Path, FileMode.CreateNew);
-                await pathAndAssemblyStream.Stream.CopyToAsync(file);
-                await console.Output.WriteLineAsync($"Modified: {pathAndAssemblyStream.Path}");
-            }
-            catch (Exception e)
-            {
-                await console.Error.WriteLineAsync($"Failed to modify: {pathAndAssemblyStream.Path}");
-                await console.Error.WriteLineAsync(e.ToString());
-                return;
-            }
-        }
-        
         await console.Output.WriteLineAsync("Done!");
     }
 
@@ -133,9 +114,10 @@ public class InjectCommand : ICommand
             {
                 return new Error("FAILED_TO_PARSE_CONFIG", "Failed parse config file at " + Config);
             }
+
             return inputConfig;
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             return new[]
             {
@@ -180,7 +162,7 @@ public class InjectCommand : ICommand
         {
             return Result.Success();
         }
-        
+
         var typeWithoutName = inputConfig.Attributes
             .SelectMany(attribute => attribute.Add?
                 .Select(type => (Attrbute: attribute, TypeName: type.Name))
@@ -196,7 +178,7 @@ public class InjectCommand : ICommand
             {
                 stringBuilder.AppendLine($"- {attribute.Attrbute.Name}");
             }
-            
+
             return configValidationFailed
                 .WithMessage(stringBuilder.ToString());
         }

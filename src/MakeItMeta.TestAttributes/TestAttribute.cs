@@ -1,15 +1,16 @@
+using System.Collections.Concurrent;
 using MakeItMeta.Attributes;
 namespace MakeItMeta.TestAttributes
 {
     public class TestAttribute : MetaAttribute
     {
-        public static Dictionary<string, List<Entry>> MethodsByAssembly { get; set; } = new Dictionary<string, List<Entry>>();
+        public static ConcurrentDictionary<string, List<Entry>> MethodsByAssembly { get; set; } = new ConcurrentDictionary<string, List<Entry>>();
 
         public static Entry? OnEntry(object? @this, string assemblyFullName, string methodName, object[]? parameters)
         {
             if (!MethodsByAssembly.ContainsKey(assemblyFullName))
             {
-                MethodsByAssembly.Add(assemblyFullName, new List<Entry>());
+                MethodsByAssembly.TryAdd(assemblyFullName, new List<Entry>());
             }
 
             var entry = new Entry
@@ -27,7 +28,7 @@ namespace MakeItMeta.TestAttributes
         {
             if (!MethodsByAssembly.ContainsKey(assemblyFullName))
             {
-                MethodsByAssembly.Add(assemblyFullName, new List<Entry>());
+                MethodsByAssembly.TryAdd(assemblyFullName, new List<Entry>());
             }
 
             var exitEntry = new Entry()
