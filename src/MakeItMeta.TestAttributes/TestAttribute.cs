@@ -1,3 +1,4 @@
+using System.Reflection;
 using MakeItMeta.Attributes;
 namespace MakeItMeta.TestAttributes
 {
@@ -5,44 +6,75 @@ namespace MakeItMeta.TestAttributes
     {
         public static Dictionary<string, List<Entry>> MethodsByAssembly { get; set; } = new Dictionary<string, List<Entry>>();
 
-        public static Entry? OnEntry(object? @this, string assemblyFullName, string methodName, object[]? parameters)
+        public static Entry? OnEntry(object? @this, string assemblyFullName, string methodFullName, object[]? parameters)
         {
-            if (!MethodsByAssembly.ContainsKey(assemblyFullName))
+            var assemblyThatCalls = Assembly.GetCallingAssembly().FullName;
+            if (!MethodsByAssembly.ContainsKey(assemblyThatCalls))
             {
-                MethodsByAssembly.Add(assemblyFullName, new List<Entry>());
+                MethodsByAssembly.Add(assemblyThatCalls, new List<Entry>());
             }
 
             var entry = new Entry
             {
-                Id = Guid.NewGuid(),
-                Message = $"OnEnter: {methodName}"
+                Kind = "OnEntry",
+                This = @this,
+                AssemblyFullname = assemblyFullName,
+                MethodFullName = methodFullName,
+                Parameters = parameters
             };
 
-            MethodsByAssembly[assemblyFullName].Add(entry);
+            MethodsByAssembly[assemblyThatCalls].Add(entry);
 
             return entry;
         }
 
-        public static void OnExit(object? @this, string assemblyFullName, string methodName, Entry? entry)
+        public static void OnExit(object? @this, string assemblyFullName, string methodFullName, object[]? parameters, Entry? entry)
         {
-            if (!MethodsByAssembly.ContainsKey(assemblyFullName))
+            var assemblyThatCalls = Assembly.GetCallingAssembly().FullName;
+            if (!MethodsByAssembly.ContainsKey(assemblyThatCalls))
             {
-                MethodsByAssembly.Add(assemblyFullName, new List<Entry>());
+                MethodsByAssembly.Add(assemblyThatCalls, new List<Entry>());
             }
 
             var exitEntry = new Entry()
             {
-                Id = entry!.Id,
-                Message = $"OnExit: {methodName}"
+                Kind = "OnExit",
+                This = @this,
+                AssemblyFullname = assemblyFullName,
+                MethodFullName = methodFullName,
+                Parameters = parameters
             };
 
-            MethodsByAssembly[assemblyFullName].Add(exitEntry);
+            MethodsByAssembly[assemblyThatCalls].Add(exitEntry);
         }
     }
 
     public class Entry
     {
-        public Guid Id { get; set; }
-        public string Message { get; set; }
+        public string Kind { get; set; }
+        
+        public object? This
+        {
+            get;
+            set;
+        }
+
+        public string AssemblyFullname
+        {
+            get;
+            set;
+        }
+
+        public string MethodFullName
+        {
+            get;
+            set;
+        }
+
+        public object[]? Parameters
+        {
+            get;
+            set;
+        }
     }
 }

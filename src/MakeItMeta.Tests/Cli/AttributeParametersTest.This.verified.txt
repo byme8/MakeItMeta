@@ -1,32 +1,35 @@
 ﻿{
-  result: 20,
   calls: [
     {
       Kind: OnEntry,
-      AssemblyFullname: {modifiedAssemblyFullName},
       MethodFullName: MakeItMeta.TestApp.Program.Execute
     },
     {
       Kind: OnEntry,
       This: {},
-      AssemblyFullname: {modifiedAssemblyFullName},
-      MethodFullName: MultiplrReturns.DoIt,
-      Parameters: [
-        2
-      ]
+      MethodFullName: MakeItMeta.TestApp.Provider.Provide
     },
     {
       Kind: OnExit,
       This: {},
-      AssemblyFullname: {modifiedAssemblyFullName},
-      MethodFullName: MultiplrReturns.DoIt,
-      Parameters: [
-        2
-      ]
+      MethodFullName: MakeItMeta.TestApp.Provider.Provide
+    },
+    {
+      Kind: OnEntry,
+      This: {
+        Value: 42
+      },
+      MethodFullName: MakeItMeta.TestApp.Executor.Execute
     },
     {
       Kind: OnExit,
-      AssemblyFullname: {modifiedAssemblyFullName},
+      This: {
+        Value: 42
+      },
+      MethodFullName: MakeItMeta.TestApp.Executor.Execute
+    },
+    {
+      Kind: OnExit,
       MethodFullName: MakeItMeta.TestApp.Program.Execute
     }
   ],

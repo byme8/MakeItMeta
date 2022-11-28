@@ -1,12 +1,12 @@
 ﻿{
   calls: [
     {
-      Id: Guid_1,
-      Message: OnEnter: MakeItMeta.TestApp.Executor.Execute
+      Kind: OnEntry,
+      MethodFullName: MakeItMeta.TestApp.Executor.Execute
     },
     {
-      Id: Guid_1,
-      Message: OnExit: MakeItMeta.TestApp.Executor.Execute
+      Kind: OnExit,
+      MethodFullName: MakeItMeta.TestApp.Executor.Execute
     }
   ],
   outputString:

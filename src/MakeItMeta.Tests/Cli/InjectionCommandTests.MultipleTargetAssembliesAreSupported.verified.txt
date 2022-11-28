@@ -3,22 +3,26 @@
   secondResult: second,
   firstCalls: [
     {
-      Id: Guid_1,
-      Message: OnEnter: FirstDoer.DoIt
+      Kind: OnEntry,
+      AssemblyFullname: {firstAssemblyFullName},
+      MethodFullName: FirstDoer.DoIt
     },
     {
-      Id: Guid_1,
-      Message: OnExit: FirstDoer.DoIt
+      Kind: OnExit,
+      AssemblyFullname: {firstAssemblyFullName},
+      MethodFullName: FirstDoer.DoIt
     }
   ],
   secondCalls: [
     {
-      Id: Guid_2,
-      Message: OnEnter: SecondDoer.DoIt
+      Kind: OnEntry,
+      AssemblyFullname: {secondAssemblyFullName},
+      MethodFullName: SecondDoer.DoIt
     },
     {
-      Id: Guid_2,
-      Message: OnExit: SecondDoer.DoIt
+      Kind: OnExit,
+      AssemblyFullname: {secondAssemblyFullName},
+      MethodFullName: SecondDoer.DoIt
     }
   ],
   outputString:

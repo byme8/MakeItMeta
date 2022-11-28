@@ -5,6 +5,14 @@ namespace MakeItMeta.Tools;
 
 public static class MetaValidator
 {
+    public static HashSet<(string, string)> Parameters = new[]
+    {
+        (Name: "this", Type: "System.Object"),
+        (Name: "assemblyFullName", Type: "System.String"),
+        (Name: "methodFullName", Type: "System.String"),
+        (Name: "parameters", Type: "System.Object[]"),
+    }.ToHashSet();
+    
     public static Result ValidateConfig(TypeDefinition[] types, InjectionConfig? config)
     {
         if (config?.Entries is null)
@@ -58,47 +66,32 @@ public static class MetaValidator
                 .GetMethods()
                 .First(o => o.Name == "OnExit");
 
-            var parameters = new[]
+            foreach (var onEntryParameter in onEntry.Parameters)
             {
-                (Name: "this", Type: "System.Object"),
-                (Name: "assemblyFullName", Type: "System.String"),
-                (Name: "methodName", Type: "System.String"),
-            };
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                var onEntryArgument = parameters[i];
-                if (onEntry.Parameters[i].Name != onEntryArgument.Name ||
-                    onEntry.Parameters[i].ParameterType.FullName != onEntryArgument.Type)
+                if (!Parameters.Contains((onEntryParameter.Name, onEntryParameter.ParameterType.FullName)))
                 {
                     return new Error(
                         "INVALID_META_ATTRIBUTE",
-                        $"[{metaAttribute.AttributeType.FullName}] The OnEntry '{i}' parameter has to be '{onEntryArgument.Type} {onEntryArgument.Name}'");
+                        $"[{metaAttribute.AttributeType.FullName}] The OnEntry '{onEntryParameter.ParameterType.FullName} {onEntryParameter.Name}' is unknown");
                 }
             }
 
-            for (int i = 0; i < parameters.Length; i++)
+            var onExitParametersToValidate = onEntry.ReturnType.FullName != "System.Void" 
+                ? onExit.Parameters.Count - 1 
+                : onExit.Parameters.Count;
+            
+            foreach (var onExitParameter in onExit.Parameters.Take(onExitParametersToValidate))
             {
-                var onExitParameter = parameters[i];
-                if (onExit.Parameters[i].Name != onExitParameter.Name ||
-                    onExit.Parameters[i].ParameterType.FullName != onExitParameter.Type)
+                if (!Parameters.Contains((onExitParameter.Name, onExitParameter.ParameterType.FullName)))
                 {
                     return new Error(
                         "INVALID_META_ATTRIBUTE",
-                        $"[{metaAttribute.AttributeType.FullName}] The OnExit '{i}' parameter has to be '{onExitParameter.Type} {onExitParameter.Name}'");
+                        $"[{metaAttribute.AttributeType.FullName}] The OnExit '{onExitParameter.ParameterType.FullName} {onExitParameter.Name}' is unknown");
                 }
             }
 
             if (onEntry.ReturnType.FullName != "System.Void")
             {
-                if (onExit.Parameters.Count != 4)
-                {
-                    return new Error(
-                        "INVALID_META_ATTRIBUTE",
-                        $"[{metaAttribute.AttributeType.FullName}] The OnEnter returns '{onEntry.ReturnType.FullName}'. The OnExit has to accept is as last parameter.");
-
-                }
-
                 var last = onExit.Parameters.Last();
                 if (last.ParameterType.FullName != onEntry.ReturnType.FullName)
                 {

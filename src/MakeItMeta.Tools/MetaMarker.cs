@@ -88,17 +88,17 @@ public class MetaMaker
 
         foreach (var method in methodsWithMetaAttributes)
         {
-            var targetModuleName = targetModule.Assembly.FullName;
-            var fullMethodName = $"{method.DeclaringType.FullName}.{method.Name}";
+            var assemblyFullName = targetModule.Assembly.FullName;
+            var methodFullname = $"{method.DeclaringType.FullName}.{method.Name}";
 
             if (method.Body is null)
             {
-                return new Error("METHOD_MISSING_BODY", $"The method '{fullMethodName}' missing body");
+                return new Error("METHOD_MISSING_BODY", $"The method '{methodFullname}' missing body");
             }
 
             if (method.Body.Instructions.Count == 0)
             {
-                return new Error("METHOD_MISSING_INSTRUCTIONS", $"The method '{fullMethodName}' missing instructions");
+                return new Error("METHOD_MISSING_INSTRUCTIONS", $"The method '{methodFullname}' missing instructions");
             }
 
             var typeMetaAttributes = method.DeclaringType.CustomAttributes
@@ -123,30 +123,15 @@ public class MetaMaker
             foreach (var metaAttribute in metaAttributes)
             {
                 var attributeType = metaAttribute.AttributeType.Resolve();
+
                 var onEntryMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnEntry"));
+                var onEnterMethodDefinition = onEntryMethod.Resolve();
                 var onExitMethod = targetModule.ImportReference(attributeType.Methods.Single(o => o.Name == "OnExit"));
+                var onExitMethodDefinition = onExitMethod.Resolve();
+
                 var onEntryReturnType = method.Module.ImportReference(onEntryMethod.ReturnType);
                 var onEnterVoidReturn = onEntryReturnType.FullName == "System.Void";
 
-                var parameters = method.Parameters
-                    .Where(o =>
-                    {
-                        var parameterTypeDefinition = o.ParameterType.Resolve();
-                        if (parameterTypeDefinition is not null)
-                        {
-                            var isRefStruct = parameterTypeDefinition.CustomAttributes
-                                .Any(a => a.AttributeType.Name.EndsWith("IsByRefLikeAttribute"));
-
-                            if (isRefStruct)
-                            {
-                                return false;
-                            }
-                        }
-                        
-                        return !o.IsOut && !o.ParameterType.IsByReference;
-                    })
-                        .ToArray();
-                
                 var il = method.Body.GetILProcessor();
 
                 var firstInstruction = method.Body.Instructions.First();
@@ -168,40 +153,11 @@ public class MetaMaker
                     declaringType = declaringType
                         .MakeGenericInstanceType(genericsArguments);
                 }
-                
-                if (method.HasThis)
-                {
-                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
 
-                    if (declaringType.IsValueType)
-                    {
-                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldobj, declaringType));
-                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, declaringType));
-                    }
-                }
-                else
-                {
-                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldnull));
-                }
-
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, targetModuleName));
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
-
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, parameters.Length));
-                il.InsertBefore(firstInstruction, il.Create(OpCodes.Newarr, targetModule.ImportReference(typeof(object))));
-                for (var i = 0; i < parameters.Length; i++)
-                {
-                    var parameter = parameters[i];
-
-                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Dup));
-                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, i));
-                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg, parameter));
-                    if (parameter.ParameterType.IsValueType || parameter.ParameterType.IsGenericParameter)
-                    {
-                        il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, parameter.ParameterType));
-                    }
-                    il.InsertBefore(firstInstruction, il.Create(OpCodes.Stelem_Ref));
-                }
+                AddThisParameter(onEnterMethodDefinition, method, il, firstInstruction, declaringType);
+                AddAssemblyFullName(onEnterMethodDefinition, il, firstInstruction, assemblyFullName);
+                AddMethodFullName(onEnterMethodDefinition, il, firstInstruction, methodFullname);
+                AddParameters(onEnterMethodDefinition, method, il, firstInstruction);
 
                 il.InsertBefore(firstInstruction, il.Create(OpCodes.Call, onEntryMethod));
 
@@ -210,24 +166,11 @@ public class MetaMaker
                     il.InsertBefore(firstInstruction, il.Create(OpCodes.Stloc, onEnterReturnVariable));
                 }
 
-                Instruction? addedBeforeLast = null;
-                if (method.HasThis)
-                {
-                    addedBeforeLast = il.Create(OpCodes.Ldarg_0);
-                    il.InsertBefore(lastInstruction, addedBeforeLast);
-                    if (declaringType.IsValueType)
-                    {
-                        il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldobj, declaringType));
-                        il.InsertBefore(lastInstruction, il.Create(OpCodes.Box, declaringType));
-                    }
-                }
-                else
-                {
-                    addedBeforeLast = il.Create(OpCodes.Ldnull);
-                    il.InsertBefore(lastInstruction, addedBeforeLast);
-                }
-                il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, targetModuleName));
-                il.InsertBefore(lastInstruction, il.Create(OpCodes.Ldstr, fullMethodName));
+                var addedBeforeLast = lastInstruction.Previous;
+                AddThisParameter(onExitMethodDefinition, method, il, lastInstruction, declaringType);
+                AddAssemblyFullName(onExitMethodDefinition, il, lastInstruction, assemblyFullName);
+                AddMethodFullName(onExitMethodDefinition, il, lastInstruction, methodFullname);
+                AddParameters(onExitMethodDefinition, method, il, lastInstruction);
 
                 if (onEnterReturnVariable is not null)
                 {
@@ -236,12 +179,100 @@ public class MetaMaker
 
                 il.InsertBefore(lastInstruction, il.Create(OpCodes.Call, onExitMethod));
 
+                addedBeforeLast = addedBeforeLast.Next;
                 FixTryCatch(method.Body, addedBeforeLast);
                 ReplaceShortForms(method.Body);
             }
         }
 
         return Result.Success();
+    }
+
+    private static void AddParameters(MethodDefinition onMethod, MethodDefinition method, ILProcessor il, Instruction firstInstruction)
+    {
+        if (onMethod.Parameters.All(o => o.Name != "parameters"))
+        {
+            return;
+        }
+
+        var parameters = method.Parameters
+            .Where(o =>
+            {
+                var parameterTypeDefinition = o.ParameterType.Resolve();
+                if (parameterTypeDefinition is not null)
+                {
+                    var isRefStruct = parameterTypeDefinition.CustomAttributes
+                        .Any(a => a.AttributeType.Name.EndsWith("IsByRefLikeAttribute"));
+
+                    if (isRefStruct)
+                    {
+                        return false;
+                    }
+                }
+
+                return !o.IsOut && !o.ParameterType.IsByReference;
+            })
+            .ToArray();
+        
+        var targetModule = method.Module;
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, parameters.Length));
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Newarr, targetModule.ImportReference(typeof(object))));
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            var parameter = parameters[i];
+
+            il.InsertBefore(firstInstruction, il.Create(OpCodes.Dup));
+            il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldc_I4, i));
+            il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg, parameter));
+            if (parameter.ParameterType.IsValueType || parameter.ParameterType.IsGenericParameter)
+            {
+                il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, parameter.ParameterType));
+            }
+            il.InsertBefore(firstInstruction, il.Create(OpCodes.Stelem_Ref));
+        }
+    }
+
+    private static void AddMethodFullName(MethodDefinition method, ILProcessor il, Instruction firstInstruction, string methodFullname)
+    {
+        if (method.Parameters.All(o => o.Name != "methodFullName"))
+        {
+            return;
+        }
+
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, methodFullname));
+    }
+
+    private static void AddAssemblyFullName(MethodDefinition onMethod, ILProcessor il, Instruction firstInstruction, string assemblyFullName)
+    {
+        if (onMethod.Parameters.All(o => o.Name != "assemblyFullName"))
+        {
+            return;
+        }
+
+        il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldstr, assemblyFullName));
+    }
+
+    private static void AddThisParameter(MethodDefinition onMethod, MethodDefinition method, ILProcessor il, Instruction firstInstruction, TypeReference declaringType)
+    {
+        if (onMethod.Parameters.All(o => o.Name != "this"))
+        {
+            return;
+        }
+
+        if (method.HasThis)
+        {
+            il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldarg_0));
+
+            if (declaringType.IsValueType)
+            {
+                il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldobj, declaringType));
+                il.InsertBefore(firstInstruction, il.Create(OpCodes.Box, declaringType));
+            }
+        }
+        else
+        {
+            il.InsertBefore(firstInstruction, il.Create(OpCodes.Ldnull));
+        }
     }
 
     private void FixTryCatch(MethodBody methodBody, Instruction addedBeforeLast)
@@ -253,7 +284,7 @@ public class MetaMaker
 
         var endOnLast = methodBody.ExceptionHandlers
             .Where(o => o.TryEnd == methodBody.Instructions.Last());
-        
+
         var handlerOnLast = methodBody.ExceptionHandlers
             .Where(o => o.HandlerEnd == methodBody.Instructions.Last());
 
@@ -261,7 +292,7 @@ public class MetaMaker
         {
             exceptionHandler.HandlerEnd = addedBeforeLast;
         }
-        
+
         foreach (var exceptionHandler in endOnLast)
         {
             exceptionHandler.HandlerEnd = addedBeforeLast;

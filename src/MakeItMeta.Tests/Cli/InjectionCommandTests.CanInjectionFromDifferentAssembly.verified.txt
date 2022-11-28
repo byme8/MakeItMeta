@@ -1,28 +1,38 @@
 ﻿{
   calls: [
     {
-      Id: Guid_1,
-      Message: OnEnter: MakeItMeta.TestApp.Program.Execute
+      Kind: OnEntry,
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
     },
     {
-      Id: Guid_2,
-      Message: OnEnter: MakeItMeta.TestApp.Provider.Provide
+      Kind: OnEntry,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Provider.Provide
     },
     {
-      Id: Guid_2,
-      Message: OnExit: MakeItMeta.TestApp.Provider.Provide
+      Kind: OnExit,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Provider.Provide
     },
     {
-      Id: Guid_3,
-      Message: OnEnter: MakeItMeta.TestApp.Executor.Execute
+      Kind: OnEntry,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Executor.Execute
     },
     {
-      Id: Guid_3,
-      Message: OnExit: MakeItMeta.TestApp.Executor.Execute
+      Kind: OnExit,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Executor.Execute
     },
     {
-      Id: Guid_1,
-      Message: OnExit: MakeItMeta.TestApp.Program.Execute
+      Kind: OnExit,
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
     }
   ],
   outputString:

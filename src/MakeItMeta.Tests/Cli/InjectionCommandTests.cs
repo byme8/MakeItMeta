@@ -16,15 +16,15 @@ public class InjectionTest
 
                 public class TestAppMetaAttribute : MetaAttribute
                 {
-                    public static Entry? OnEntry(object? @this, string assemblyFullName, string methodName, object?[]? parameters)
+                    public static Entry? OnEntry(string methodFullName)
                     {
                         // place to replace
-                        return TestAttribute.OnEntry(@this, assemblyFullName, methodName, parameters);
+                        return TestAttribute.OnEntry(null, null, methodFullName, null);
                     }
 
-                    public static void OnExit(object? @this, string assemblyFullName, string methodName, Entry? entry)
+                    public static void OnExit(string methodFullName, Entry? entry)
                     {
-                        TestAttribute.OnExit(@this, assemblyFullName, methodName, entry);
+                        TestAttribute.OnExit(null, null, methodFullName, null, entry);
                     }
                 }            
                 """;
@@ -47,7 +47,7 @@ public class InjectionTest
                 }
                 """;
     
-    public static async Task Execute(string newFile, string config, (string, string) places = default)
+    public static async Task Execute(string newFile, string config, params (string, string)[] places)
     {
         var tempTargetAssemblyFile = await PrepareTestAssemblyFile(newFile, places);
 
@@ -67,7 +67,9 @@ public class InjectionTest
         var result = modifiedAssembly.Execute();
 
         var modifiedAssemblyFullName = modifiedAssembly.FullName!;
-        var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(modifiedAssemblyFullName);
+        var calls = TestAttribute.MethodsByAssembly
+            .GetValueOrDefault(modifiedAssemblyFullName)?
+            .ToArray();
         var outputString = console.ReadOutputString();
         var errorString = console.ReadErrorString();
 
@@ -79,6 +81,7 @@ public class InjectionTest
             errorString
         })
             .Track(tempTargetAssemblyFile)
+            .Track(modifiedAssemblyFullName)
             .Track(tempConfigFile);
     }
 
@@ -90,7 +93,7 @@ public class InjectionTest
         return modifiedAssembly;
     }
 
-    public static async Task<string> PrepareTestAssemblyFile(string? additionalFile = null, (string, string) places = default)
+    public static async Task<string> PrepareTestAssemblyFile(string? additionalFile = null, params (string, string)[] places)
     {
         var metaAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.Attributes.dll");
         var testAttributesReference = MetadataReference.CreateFromFile("MakeItMeta.TestAttributes.dll");
@@ -109,7 +112,7 @@ public class InjectionTest
                 .AddMetadataReference(metaAttributesReference);
         }
 
-        if (places != default)
+        if (places.Any())
         {
             project = await project.ReplacePartOfDocumentAsync("Program.cs", places);
         }
@@ -384,7 +387,9 @@ public class InjectionCommandTests : InjectionTest
                 errorString
             })
             .Track(firstAssemblyFile)
+            .Track(firstAssemblyFullName)
             .Track(secondAssemblyFile)
+            .Track(secondAssemblyFullName)
             .Track(configFile);
     }
 }

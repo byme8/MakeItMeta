@@ -2,28 +2,38 @@
   result: true,
   calls: [
     {
-      Id: Guid_1,
-      Message: OnEnter: MakeItMeta.TestApp.Program.Execute
+      Kind: OnEntry,
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
     },
     {
-      Id: Guid_2,
-      Message: OnEnter: Container.Execute
+      Kind: OnEntry,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container.Execute
     },
     {
-      Id: Guid_3,
-      Message: OnEnter: Container.TryGet
+      Kind: OnEntry,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container.TryGet
     },
     {
-      Id: Guid_3,
-      Message: OnExit: Container.TryGet
+      Kind: OnExit,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container.TryGet
     },
     {
-      Id: Guid_2,
-      Message: OnExit: Container.Execute
+      Kind: OnExit,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container.Execute
     },
     {
-      Id: Guid_1,
-      Message: OnExit: MakeItMeta.TestApp.Program.Execute
+      Kind: OnExit,
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
     }
   ],
   outputString:

@@ -143,7 +143,8 @@ public class GenerationTests
         var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(newAssemblyFullName);
 
         await Verify(calls)
-            .UseParameters(useCase);
+            .UseParameters(useCase)
+            .Track(newAssemblyFullName);
     }
 
     [Fact]
@@ -175,12 +176,13 @@ public class GenerationTests
         var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(newAssemblyFullName);
 
         await Verify(new
-        {
-            calls,
-            errors
-        });
+            {
+                calls,
+                errors
+            })
+            .Track(newAssemblyFullName);
     }
-    
+
     [Fact]
     public async Task CanRewriteTheWholeAssembly()
     {
@@ -203,10 +205,11 @@ public class GenerationTests
         var calls = TestAttribute.MethodsByAssembly.GetValueOrDefault(newAssemblyFullName);
 
         await Verify(new
-        {
-            calls,
-            errors
-        });
+            {
+                calls,
+                errors
+            })
+            .Track(newAssemblyFullName);
     }
 
     [Fact]

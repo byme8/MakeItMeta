@@ -2,20 +2,32 @@
   result: true,
   calls: [
     {
-      Id: Guid_1,
-      Message: OnEnter: MakeItMeta.TestApp.Program.Execute
+      Kind: OnEntry,
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
     },
     {
-      Id: Guid_2,
-      Message: OnEnter: Optional`1.get_HasValue
+      Kind: OnEntry,
+      This: {
+        HasValue: true,
+        Value: 123
+      },
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Optional`1.get_HasValue
     },
     {
-      Id: Guid_2,
-      Message: OnExit: Optional`1.get_HasValue
+      Kind: OnExit,
+      This: {
+        HasValue: true,
+        Value: 123
+      },
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Optional`1.get_HasValue
     },
     {
-      Id: Guid_1,
-      Message: OnExit: MakeItMeta.TestApp.Program.Execute
+      Kind: OnExit,
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
     }
   ],
   outputString:

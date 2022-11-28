@@ -1,12 +1,16 @@
 ﻿{
   calls: [
     {
-      Id: Guid_1,
-      Message: OnEnter: MakeItMeta.TestApp.Executor.Execute
+      Kind: OnEntry,
+      This: {},
+      AssemblyFullname: {newAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Executor.Execute
     },
     {
-      Id: Guid_1,
-      Message: OnExit: MakeItMeta.TestApp.Executor.Execute
+      Kind: OnExit,
+      This: {},
+      AssemblyFullname: {newAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Executor.Execute
     }
   ]
 }

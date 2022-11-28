@@ -2,44 +2,68 @@
   result: 42,
   calls: [
     {
-      Id: Guid_1,
-      Message: OnEnter: MakeItMeta.TestApp.Program.Execute
+      Kind: OnEntry,
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
     },
     {
-      Id: Guid_2,
-      Message: OnEnter: Container`1.Execute
+      Kind: OnEntry,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container`1.Execute
     },
     {
-      Id: Guid_3,
-      Message: OnEnter: Container`1.TryGet
+      Kind: OnEntry,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container`1.TryGet
     },
     {
-      Id: Guid_3,
-      Message: OnExit: Container`1.TryGet
+      Kind: OnExit,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container`1.TryGet
     },
     {
-      Id: Guid_4,
-      Message: OnEnter: Container`1.TryPopulate
+      Kind: OnEntry,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container`1.TryPopulate
     },
     {
-      Id: Guid_4,
-      Message: OnExit: Container`1.TryPopulate
+      Kind: OnExit,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container`1.TryPopulate
     },
     {
-      Id: Guid_5,
-      Message: OnEnter: Container`1.SetAndRaise
+      Kind: OnEntry,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container`1.SetAndRaise,
+      Parameters: [
+        42
+      ]
     },
     {
-      Id: Guid_5,
-      Message: OnExit: Container`1.SetAndRaise
+      Kind: OnExit,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container`1.SetAndRaise,
+      Parameters: [
+        42
+      ]
     },
     {
-      Id: Guid_2,
-      Message: OnExit: Container`1.Execute
+      Kind: OnExit,
+      This: {},
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: Container`1.Execute
     },
     {
-      Id: Guid_1,
-      Message: OnExit: MakeItMeta.TestApp.Program.Execute
+      Kind: OnExit,
+      AssemblyFullname: {modifiedAssemblyFullName},
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
     }
   ],
   outputString:
