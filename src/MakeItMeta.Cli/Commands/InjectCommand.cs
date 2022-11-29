@@ -53,7 +53,7 @@ public class InjectCommand : ICommand
                 var add = att.Add?
                     .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
                     .ToArray();
-                
+
                 var ignore = att.Ignore?
                     .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
                     .ToArray();
@@ -91,7 +91,7 @@ public class InjectCommand : ICommand
         {
             await targetAssembly.DisposeAsync();
         }
-        
+
         var pathAndAssembly = inputConfig.TargetAssemblies!
             .Zip(resultAssemblies, (path, stream) => new { Path = path, Stream = stream })
             .ToArray();
@@ -112,7 +112,7 @@ public class InjectCommand : ICommand
                 return;
             }
         }
-        
+
         await console.Output.WriteLineAsync("Done!");
     }
 
@@ -133,9 +133,10 @@ public class InjectCommand : ICommand
             {
                 return new Error("FAILED_TO_PARSE_CONFIG", "Failed parse config file at " + Config);
             }
+
             return inputConfig;
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             return new[]
             {
@@ -180,7 +181,7 @@ public class InjectCommand : ICommand
         {
             return Result.Success();
         }
-        
+
         var typeWithoutName = inputConfig.Attributes
             .SelectMany(attribute => attribute.Add?
                 .Select(type => (Attrbute: attribute, TypeName: type.Name))
@@ -196,7 +197,7 @@ public class InjectCommand : ICommand
             {
                 stringBuilder.AppendLine($"- {attribute.Attrbute.Name}");
             }
-            
+
             return configValidationFailed
                 .WithMessage(stringBuilder.ToString());
         }

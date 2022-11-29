@@ -16,7 +16,7 @@ public class MetaMaker
 
         var injectableModules = injectionConfig?
             .AdditionalAssemblies?
-            .Select(ModuleDefinition.ReadModule)
+            .Select(o => ModuleDefinition.ReadModule(o, readParameters))
             .ToArray() ?? Array.Empty<ModuleDefinition>();
 
         var allModules = new List<ModuleDefinition>();
@@ -57,6 +57,9 @@ public class MetaMaker
             resultAssemblies.Add(newAssembly);
         }
 
+        allModules.ForEach(o => o.Dispose());
+        readParameters.AssemblyResolver.Dispose();
+
         return resultAssemblies;
     }
 
@@ -72,7 +75,9 @@ public class MetaMaker
         }
         var readParameters = new ReaderParameters
         {
-            AssemblyResolver = resolver
+            AssemblyResolver = resolver,
+            ReadingMode = ReadingMode.Immediate,
+            InMemory = true
         };
 
         return readParameters;
