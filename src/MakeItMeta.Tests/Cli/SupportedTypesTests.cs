@@ -336,4 +336,29 @@ public class SupportedTypesTests : InjectionTest
 
         await Execute(newFile, Config, (replace, main));
     }
+    
+    [Fact]
+    public async Task AsyncAwait()
+    {
+        var newFile = """
+            public class Container
+            {
+                public async Task<string> Get()
+                {
+                    await Task.Delay(10);
+                    return "hello";
+                }
+
+                public string Execute()
+                {
+                    return Get().Result;
+                }
+            }
+
+            """;
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = "return new Container().Execute();";
+
+        await Execute(newFile, Config, (replace, main));
+    }
 }
