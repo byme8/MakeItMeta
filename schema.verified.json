@@ -1,0 +1,88 @@
+﻿{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "InjectionConfigInput",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "TargetAssemblies": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "AdditionalAssemblies": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "Attributes": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/InjectionAttributeInput"
+      }
+    }
+  },
+  "definitions": {
+    "InjectionAttributeInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "Add": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/InjectionTypeEntryInput"
+          }
+        },
+        "Ignore": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/InjectionTypeEntryInput"
+          }
+        }
+      }
+    },
+    "InjectionTypeEntryInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "Methods": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
