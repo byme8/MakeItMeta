@@ -4,7 +4,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "TargetAssemblies": {
+    "schema": {
+      "type": "string"
+    },
+    "targetAssemblies": {
       "type": [
         "array",
         "null"
@@ -13,7 +16,7 @@
         "type": "string"
       }
     },
-    "AdditionalAssemblies": {
+    "additionalAssemblies": {
       "type": [
         "array",
         "null"
@@ -22,7 +25,7 @@
         "type": "string"
       }
     },
-    "Attributes": {
+    "attributes": {
       "type": [
         "array",
         "null"
@@ -37,13 +40,13 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Name": {
+        "name": {
           "type": [
             "null",
             "string"
           ]
         },
-        "Add": {
+        "add": {
           "type": [
             "array",
             "null"
@@ -52,7 +55,7 @@
             "$ref": "#/definitions/InjectionTypeEntryInput"
           }
         },
-        "Ignore": {
+        "ignore": {
           "type": [
             "array",
             "null"
@@ -67,13 +70,13 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "Name": {
+        "name": {
           "type": [
             "null",
             "string"
           ]
         },
-        "Methods": {
+        "methods": {
           "type": [
             "array",
             "null"
