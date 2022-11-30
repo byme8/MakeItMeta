@@ -10,16 +10,19 @@ public class JsonSchema
     [Fact]
     public async Task GenerateSchema()
     {
-        var schema = NJsonSchema.JsonSchema.FromType<InjectionConfigInput>(new JsonSchemaGeneratorSettings()
+        var jsonSerializerSettings = new JsonSerializerSettings
         {
-            SerializerSettings = new JsonSerializerSettings
+            ContractResolver = new DefaultContractResolver
             {
-                ContractResolver = new DefaultContractResolver
-                {
-                    NamingStrategy = new CamelCaseNamingStrategy()
-                }
+                NamingStrategy = new CamelCaseNamingStrategy()
             }
-        });
+        };
+        var jsonSchemaGeneratorSettings = new JsonSchemaGeneratorSettings()
+        {
+            SerializerSettings = jsonSerializerSettings
+        };
+        
+        var schema = NJsonSchema.JsonSchema.FromType<InjectionConfigInput>(jsonSchemaGeneratorSettings);
 
         await Verify(schema.ToJson(), "json")
             .UseFileName("schema")

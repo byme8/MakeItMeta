@@ -1,10 +1,10 @@
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 #pragma warning disable CS8618
 namespace MakeItMeta.Cli.Data;
 
 public class InjectionConfigInput
 {
-    [JsonPropertyName("$schema")]
+    [JsonProperty("$schema")]
     public string Schema { get; set; }
     
     public string[]? TargetAssemblies { get; set; }
