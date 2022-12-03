@@ -65,7 +65,7 @@ public class MetaMaker
 
     private ReaderParameters PrepareReadParameters(string[]? searchFolders)
     {
-        var resolver = new Mono.Cecil.DefaultAssemblyResolver();
+        var resolver = new DefaultAssemblyResolver();
         if (searchFolders is not null)
         {
             foreach (var folder in searchFolders)

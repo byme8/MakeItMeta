@@ -1,6 +1,28 @@
 
 namespace MakeItMeta.Tools;
 
-public record InjectionEntry(string Attribute, InjectionTypeEntry[]? Add, InjectionTypeEntry[]? Ignore = null);
+public class InjectionEntry
+{
+    public InjectionEntry(string attribute, InjectionTypeEntry[]? add, InjectionTypeEntry[]? ignore = null)
+    {
+        Attribute = attribute;
+        Add = add;
+        Ignore = ignore;
+    }
 
-public record InjectionTypeEntry(string Name, string[]? Methods);
+    public string Attribute { get; }
+    public InjectionTypeEntry[]? Add { get; }
+    public InjectionTypeEntry[]? Ignore { get; }
+}
+
+public class InjectionTypeEntry
+{
+    public InjectionTypeEntry(string name, string[]? methods)
+    {
+        Name = name;
+        Methods = methods;
+    }
+
+    public string Name { get; }
+    public string[]? Methods { get; }
+}
