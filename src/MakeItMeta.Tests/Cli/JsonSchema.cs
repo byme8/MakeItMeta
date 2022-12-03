@@ -1,4 +1,4 @@
-using MakeItMeta.Cli.Data;
+using MakeItMeta.Tools.Data;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using NJsonSchema.Generation;

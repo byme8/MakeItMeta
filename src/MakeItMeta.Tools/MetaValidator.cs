@@ -1,6 +1,11 @@
+using System.Text;
+using MakeItMeta.Tools.Data;
 using MakeItMeta.Tools.Results;
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
+
 namespace MakeItMeta.Tools;
 
 public static class MetaValidator
@@ -12,6 +17,11 @@ public static class MetaValidator
         (Name: "methodFullName", Type: "System.String"),
         (Name: "parameters", Type: "System.Object[]"),
     }.ToHashSet();
+    
+    private static JsonSerializerSettings options = new()
+    {
+        ContractResolver = new CamelCasePropertyNamesContractResolver()
+    };
     
     public static Result ValidateConfig(TypeDefinition[] types, InjectionConfig? config)
     {
@@ -132,5 +142,130 @@ public static class MetaValidator
                 }
             }
         }
+    }
+    
+    public static Result<InjectionConfigOutput> ReadConfig(string json)
+    {
+        try
+        {
+            var inputConfig = JsonConvert.DeserializeObject<InjectionConfigInput>(json, options);
+            if (inputConfig is null)
+            {
+                return new Error("FAILED_TO_PARSE_CONFIG", "Failed parse config");
+            }
+
+            var validationError = ValidateInputConfig(inputConfig).Unwrap();
+            if (validationError)
+            {
+                return validationError;
+            }
+
+            var attributes = inputConfig.Attributes?
+                .Select(att =>
+                {
+                    var add = att.Add?
+                        .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
+                        .ToArray();
+
+                    var ignore = att.Ignore?
+                        .Select(type => new InjectionTypeEntry(type.Name!, type.Methods))
+                        .ToArray();
+
+                    return new InjectionEntry(att.Name!, add, ignore);
+                })
+                .ToArray();
+
+            var targetAssemblies = inputConfig.TargetAssemblies!
+                .Select(File.OpenRead)
+                .Cast<Stream>()
+                .ToArray();
+
+            var additionalAssemblies = inputConfig.AdditionalAssemblies?
+                .Select(File.OpenRead)
+                .Cast<Stream>()
+                .ToArray();
+
+            var injectionConfig = new InjectionConfig(additionalAssemblies, attributes);
+
+            var searchFolders = inputConfig.TargetAssemblies!
+                .Select(o => Path.GetDirectoryName(o)!)
+                .Distinct()
+                .ToArray();
+
+            return new InjectionConfigOutput
+            {
+                TargetAssembliesPath = inputConfig.TargetAssemblies!,
+                TargetAssemblies = targetAssemblies,
+                InjectionConfig = injectionConfig,
+                SearchFolders = searchFolders
+            };
+        }
+        catch (Exception ex)
+        {
+            return new[]
+            {
+                new Error("FAILED_TO_PARSE_CONFIG", "Failed parse config file"),
+                new Error("FAILED_TO_PARSE_CONFIG", ex.Message),
+            };
+        }
+    }
+
+    private static Result ValidateInputConfig(InjectionConfigInput inputConfig)
+    {
+        var configValidationFailed = new Error("CONFIG_VALIDATION_FAILED", string.Empty);
+        if (inputConfig.TargetAssemblies is null)
+        {
+            return configValidationFailed
+                .WithMessage("Config file does not contain any target assemblies");
+        }
+
+        foreach (var target in inputConfig.TargetAssemblies)
+        {
+            if (File.Exists(target))
+            {
+                continue;
+            }
+
+            return configValidationFailed
+                .WithMessage("Failed to find target assembly at " + target);
+        }
+
+        foreach (var target in inputConfig.AdditionalAssemblies ?? Array.Empty<string>())
+        {
+            if (File.Exists(target))
+            {
+                continue;
+            }
+
+            return configValidationFailed
+                .WithMessage("Failed to find target assembly at " + target);
+        }
+
+        if (inputConfig.Attributes is null)
+        {
+            return Result.Success();
+        }
+
+        var typeWithoutName = inputConfig.Attributes
+            .SelectMany(attribute => attribute.Add?
+                .Select(type => (Attrbute: attribute, TypeName: type.Name))
+                .ToArray() ?? Array.Empty<(InjectionAttributeInput Attrbute, string? TypeName)>())
+            .Where(x => x.TypeName is null)
+            .ToArray();
+
+        if (typeWithoutName.Any())
+        {
+            var stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine("The types do not contain names inside the attributes");
+            foreach (var attribute in typeWithoutName)
+            {
+                stringBuilder.AppendLine($"- {attribute.Attrbute.Name}");
+            }
+
+            return configValidationFailed
+                .WithMessage(stringBuilder.ToString());
+        }
+
+        return Result.Success();
     }
 }

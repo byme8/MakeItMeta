@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
+
 #pragma warning disable CS8618
-namespace MakeItMeta.Cli.Data;
+namespace MakeItMeta.Tools.Data;
 
 public class InjectionConfigInput
 {
@@ -28,4 +29,15 @@ public class InjectionTypeEntryInput
     public string? Name { get; set; }
 
     public string[]? Methods { get; set; }
+}
+
+public class InjectionConfigOutput
+{
+    public string[] TargetAssembliesPath { get; set; }
+
+    public Stream[] TargetAssemblies { get; set; }
+    
+    public InjectionConfig InjectionConfig { get; set; }
+
+    public string[] SearchFolders { get; set; }
 }
