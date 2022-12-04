@@ -23,15 +23,15 @@ public class AttributeParametersTest : InjectionTest
                 {
                     TestAttribute.OnExit(null, null, methodFullName, null, entry);
                 }
-            }            
+            }
             """;
 
         var newConfig = Config
             .Replace("MakeItMeta.TestAttributes.TestAttribute", "TestAppMetaAttribute");
-        
+
         await Execute(attribute, newConfig);
     }
-    
+
     [Fact]
     public async Task This()
     {
@@ -57,12 +57,12 @@ public class AttributeParametersTest : InjectionTest
 
         var newConfig = Config
             .Replace("MakeItMeta.TestAttributes.TestAttribute", "TestAppMetaAttribute");
-        
+
         var replaces = ("public object? Execute()", "public int Value { get; }= 42; public object? Execute()");
-        
+
         await Execute(attribute, newConfig, replaces);
     }
-    
+
     [Fact]
     public async Task Parameters()
     {
@@ -91,10 +91,165 @@ public class AttributeParametersTest : InjectionTest
 
         var replaces = new[]
         {
-            ("return new Provider().Provide().Execute(); // place to replace", "return new Provider().Provide(42).Execute();"),
+            ("return new Provider().Provide().Execute(); // place to replace",
+                "return new Provider().Provide(42).Execute();"),
             ("public IExecutor Provide()", "public IExecutor Provide(int value)")
         };
-        
+
         await Execute(attribute, newConfig, replaces);
+    }
+
+    [Fact]
+    public async Task ResultCanBeStruct()
+    {
+        var attribute = """
+            using MakeItMeta.Attributes;
+            using MakeItMeta.TestAttributes;
+            using System.Reflection;
+
+            public class TestAppMetaAttribute : MetaAttribute
+            {
+                public static EntryStruct? OnEntry(string methodFullName)
+                {
+                    // place to replace
+                    var entry =  TestAttribute.OnEntry(null, null, methodFullName, null);
+                    return entry == null ? null : new EntryStruct
+                    {
+                        Kind = entry.Kind,
+                        MethodFullName = entry.MethodFullName
+                    };
+                }
+
+                public static void OnExit(string methodFullName, EntryStruct? entry)
+                {
+                    TestAttribute.OnExit(null, null, methodFullName, null, new Entry
+                    {
+                        Kind = entry?.Kind,
+                        MethodFullName = entry?.MethodFullName
+                    });
+                }
+            }                 
+            
+            public class EntryStruct
+            {
+                public string Kind { get; set; }
+                
+                public string MethodFullName
+                {
+                    get;
+                    set;
+                }
+            }       
+            """;
+
+        var config =
+            """
+                {
+                    "targetAssemblies": [],
+                    "additionalAssemblies": 
+                    [
+                        "MakeItMeta.Attributes.dll",
+                        "MakeItMeta.TestAttributes.dll"
+                    ],
+                    "attributes": 
+                    [
+                        {
+                            "name": "TestAppMetaAttribute",
+                            "ignore": [
+                                {
+                                    "name": "EntryStruct"
+                                }
+                            ]
+                        }
+                    ]
+                }
+                """;
+
+        await Execute(attribute, config);
+    }
+
+    [Fact]
+    public async Task ResultCanBeStructAsync()
+    {
+        var newFile = """
+            using MakeItMeta.Attributes;
+            using MakeItMeta.TestAttributes;
+            using System.Reflection;
+
+            public class TestAppMetaAttribute : MetaAttribute
+            {
+                public static EntryStruct? OnEntry(string methodFullName)
+                {
+                    var entry =  TestAttribute.OnEntry(null, null, methodFullName, null);
+                    return entry == null ? null : new EntryStruct
+                    {
+                        Kind = entry.Kind,
+                        MethodFullName = entry.MethodFullName
+                    };
+                }
+
+                public static void OnExit(string methodFullName, EntryStruct? entry)
+                {
+                    TestAttribute.OnExit(null, null, methodFullName, null, new Entry
+                    {
+                        Kind = entry?.Kind,
+                        MethodFullName = entry?.MethodFullName
+                    });
+                }
+            }                 
+            
+            public class EntryStruct
+            {
+                public string Kind { get; set; }
+                
+                public string MethodFullName
+                {
+                    get;
+                    set;
+                }
+            }
+            
+            public class Container
+            {
+                public async Task<string> Get()
+                {
+                    await Task.Delay(10);
+                    return "hello";
+                }
+
+                public string Execute()
+                {
+                    return Get().Result;
+                }
+            }
+            """;
+
+        var config =
+            """
+            {
+                "targetAssemblies": [],
+                "additionalAssemblies": 
+                [
+                    "MakeItMeta.Attributes.dll",
+                    "MakeItMeta.TestAttributes.dll"
+                ],
+                "attributes": 
+                [
+                    {
+                        "name": "TestAppMetaAttribute",
+                        "ignore": [
+                            {
+                                "name": "EntryStruct"
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var replace = "return new Provider().Provide().Execute(); // place to replace";
+        var main = "return new Container().Execute();";
+
+        await Execute(newFile, config, (replace, main));
     }
 }

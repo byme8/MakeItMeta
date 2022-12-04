@@ -1,0 +1,35 @@
+﻿{
+  result: hello,
+  calls: [
+    {
+      Kind: OnEntry,
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
+    },
+    {
+      Kind: OnEntry,
+      MethodFullName: Container.Execute
+    },
+    {
+      Kind: OnEntry,
+      MethodFullName: Container.Get
+    },
+    {
+      Kind: OnExit,
+      MethodFullName: Container.Get
+    },
+    {
+      Kind: OnExit,
+      MethodFullName: Container.Execute
+    },
+    {
+      Kind: OnExit,
+      MethodFullName: MakeItMeta.TestApp.Program.Execute
+    }
+  ],
+  outputString:
+Config is validated
+Modified: {tempTargetAssemblyFile}
+Done!
+,
+  errorString: 
+}

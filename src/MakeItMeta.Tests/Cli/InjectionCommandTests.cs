@@ -305,7 +305,7 @@ public class InjectionTest
                 """;
 
     public const string Config = 
-        """
+                """
                 {
                     "targetAssemblies": [],
                     "additionalAssemblies": 
